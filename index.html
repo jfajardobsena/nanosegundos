@@ -33,8 +33,14 @@
                 <span id="sync-status" class="text-xs bg-slate-800 text-amber-300 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1.5">
                     <i class="fa-solid fa-cloud-arrow-up animate-pulse"></i> Conectando...
                 </span>
-                <button onclick="saveToCloud()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm">
+                <button id="save-button" onclick="saveToCloud()" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm">
                     <i class="fa-solid fa-floppy-disk"></i> Guardar en la Nube
+                </button>
+                <button id="editor-login-button" onclick="loginAsEditor()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm">
+                    <i class="fa-brands fa-google"></i> Iniciar sesión para editar
+                </button>
+                <button id="editor-logout-button" onclick="logoutEditor()" class="hidden bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg text-sm font-medium transition">
+                    Cerrar sesión
                 </button>
                 <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm">
                     <i class="fa-solid fa-file-excel"></i> Exportar a Excel
@@ -165,10 +171,11 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, linkWithPopup, onAuthStateChanged, signInAnonymously, signInWithCredential, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const appId = 'jennifer-iso2701-app';
+        const appId = 'jennifer-iso27001-app';
+        const editorEmail = 'ing.jennifer.fajardo@gmail.com';
         const firebaseConfig = {
             apiKey: "AIzaSyDWCDbHOvYK_eBs3N9PC_zDuYj7-HgAw8U",
             authDomain: "nanosegundos-95b4e.firebaseapp.com",
@@ -181,6 +188,8 @@
 
         let app, db, auth;
         let userId = null;
+        let isEditor = false;
+        let legacyControls = null;
         let activeModalIndex = null;
 
         // Base de datos completa de los 93 controles del Anexo A ISO/IEC 27001:2022 con tareas detalladas para cada control
@@ -605,10 +614,26 @@
             const statusEl = document.getElementById("sync-status");
             onAuthStateChanged(auth, async (user) => {
                 userId = user?.uid || null;
-                statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-indigo-400"></i> Cargando tus datos...`;
-                await loadFromCloud();
+                isEditor = user?.email?.toLowerCase() === editorEmail;
+                updateEditorControls();
+                statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-indigo-400"></i> Cargando matriz compartida...`;
+
+                if (isEditor) {
+                    const legacyUid = localStorage.getItem('isoMatrixLegacyUid');
+                    if (legacyUid && localStorage.getItem('isoMatrixMigratedLegacyUid') !== legacyUid) {
+                        legacyControls = await loadLegacyControls(legacyUid);
+                    }
+                }
+
+                const loadResult = await loadFromCloud();
                 renderTable(getFilteredData());
-                statusEl.innerHTML = `<i class="fa-solid fa-cloud text-emerald-400"></i> Nube sincronizada · Sesión anónima`;
+                if (loadResult === null) {
+                    statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Error de lectura (${window.lastFirestoreError || 'desconocido'})`;
+                } else if (isEditor) {
+                    statusEl.innerHTML = `<i class="fa-solid fa-pen-to-square text-emerald-400"></i> Editando como ${user.email}`;
+                } else {
+                    statusEl.innerHTML = `<i class="fa-solid fa-eye text-sky-300"></i> Vista pública · Solo lectura`;
+                }
             });
 
             try {
@@ -617,15 +642,37 @@
                 }
             } catch (e) {
                 console.error("Auth/Cloud init error:", e);
-                statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Modo Local · Error de autenticación`;
+                statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Error de autenticación (${e.code || 'desconocido'})`;
                 renderTable(window.isoControls);
             }
         });
 
-        async function loadFromCloud() {
-            if (!userId) return;
+        async function loadLegacyControls(legacyUserId) {
             try {
-                const docRef = doc(db, 'artifacts', appId, 'users', userId, 'iso_matrix_data', 'controls_v3');
+                const legacyRef = doc(db, 'artifacts', appId, 'users', legacyUserId, 'iso_matrix_data', 'controls_v3');
+                const legacySnap = await getDoc(legacyRef);
+                const controls = legacySnap.exists() ? legacySnap.data().controls : null;
+                return Array.isArray(controls) && controls.length === 93 ? controls : null;
+            } catch (err) {
+                console.error("Could not read previous private matrix:", err);
+                window.lastFirestoreError = err.code || err.message;
+                return null;
+            }
+        }
+
+        async function loadFromCloud() {
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'shared_data', 'controls_v3');
+                const legacyUid = localStorage.getItem('isoMatrixLegacyUid');
+                if (isEditor && legacyControls && legacyUid && localStorage.getItem('isoMatrixMigratedLegacyUid') !== legacyUid) {
+                    window.isoControls = legacyControls;
+                    await setDoc(docRef, { controls: legacyControls, updatedAt: new Date().toISOString() });
+                    localStorage.setItem('isoMatrixMigratedLegacyUid', legacyUid);
+                    localStorage.removeItem('isoMatrixLegacyUid');
+                    legacyControls = null;
+                    return true;
+                }
+
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     const savedData = docSnap.data().controls;
@@ -633,25 +680,28 @@
                         window.isoControls = savedData;
                     }
                 }
+                return true;
             } catch (err) {
                 console.error("Error loading from cloud:", err);
+                window.lastFirestoreError = err.code || err.message;
+                return null;
             }
         }
 
         window.saveToCloud = async function() {
             const statusEl = document.getElementById("sync-status");
-            if (!userId) {
-                statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Sin conexión a Firebase`;
+            if (!isEditor) {
+                statusEl.innerHTML = `<i class="fa-solid fa-lock text-amber-400"></i> Solo la editora puede guardar`;
                 return;
             }
 
             statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-indigo-400"></i> Guardando...`;
             try {
-                const docRef = doc(db, 'artifacts', appId, 'users', userId, 'iso_matrix_data', 'controls_v3');
+                const docRef = doc(db, 'artifacts', appId, 'shared_data', 'controls_v3');
                 await setDoc(docRef, { controls: window.isoControls, updatedAt: new Date().toISOString() });
-                statusEl.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> ¡Guardado en tu nube!`;
+                statusEl.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> ¡Guardado en la matriz compartida!`;
                 setTimeout(() => {
-                    statusEl.innerHTML = `<i class="fa-solid fa-cloud text-emerald-400"></i> Nube sincronizada · Sesión anónima`;
+                    statusEl.innerHTML = `<i class="fa-solid fa-cloud text-emerald-400"></i> Editando como ${auth.currentUser?.email || editorEmail}`;
                 }, 3000);
             } catch (err) {
                 console.error("Save error:", err);
@@ -659,8 +709,59 @@
             }
         }
 
+        function updateEditorControls() {
+            document.getElementById("save-button").classList.toggle("hidden", !isEditor);
+            document.getElementById("editor-login-button").classList.toggle("hidden", isEditor);
+            document.getElementById("editor-logout-button").classList.toggle("hidden", !isEditor);
+        }
+
+        window.loginAsEditor = async function() {
+            const provider = new GoogleAuthProvider();
+            provider.setCustomParameters({ prompt: 'select_account' });
+            const anonymousUser = auth.currentUser?.isAnonymous ? auth.currentUser : null;
+            if (anonymousUser) localStorage.setItem('isoMatrixLegacyUid', anonymousUser.uid);
+
+            try {
+                const result = anonymousUser
+                    ? await linkWithPopup(anonymousUser, provider)
+                    : await signInWithPopup(auth, provider);
+                if (result.user.email?.toLowerCase() !== editorEmail) {
+                    await signOut(auth);
+                    await signInAnonymously(auth);
+                    alert(`La cuenta seleccionada no puede editar. Usa ${editorEmail}.`);
+                }
+            } catch (err) {
+                if (err.code === 'auth/credential-already-in-use' || err.code === 'auth/account-exists-with-different-credential') {
+                    const credential = GoogleAuthProvider.credentialFromError(err);
+                    if (credential) {
+                        try {
+                            const result = await signInWithCredential(auth, credential);
+                            if (result.user.email?.toLowerCase() !== editorEmail) {
+                                await signOut(auth);
+                                await signInAnonymously(auth);
+                                alert(`La cuenta seleccionada no puede editar. Usa ${editorEmail}.`);
+                            }
+                            return;
+                        } catch (credentialError) {
+                            console.error("Google credential sign-in error:", credentialError);
+                            alert(`No se pudo completar el acceso (${credentialError.code || 'error'}).`);
+                            return;
+                        }
+                    }
+                }
+                console.error("Editor sign-in error:", err);
+                alert(`No se pudo iniciar el acceso (${err.code || 'error'}). ${err.message || ''}`);
+            }
+        }
+
+        window.logoutEditor = async function() {
+            await signOut(auth);
+            await signInAnonymously(auth);
+        }
+
         function renderTable(data) {
             const tbody = document.getElementById("table-body");
+            const readOnlyAttribute = isEditor ? '' : 'disabled';
             tbody.innerHTML = "";
             
             if (data.length === 0) {
@@ -694,7 +795,7 @@
                     <td class="py-3 px-3 align-top"><span class="text-xs px-2 py-0.5 rounded-md font-medium ${catBadgeClass}">${item.cat}</span></td>
                     <td class="py-3 px-3 font-medium text-slate-900 text-xs align-top">${item.name}</td>
                     <td class="py-3 px-3 text-center align-top">
-                        <select onchange="updateMat(${globalIndex}, this.value)" class="text-xs border border-slate-300 rounded px-1.5 py-1 bg-white font-semibold">
+                        <select ${readOnlyAttribute} onchange="updateMat(${globalIndex}, this.value)" class="text-xs border border-slate-300 rounded px-1.5 py-1 bg-white font-semibold">
                             <option value="0" ${item.mat === 0 ? 'selected' : ''}>0 - Inexistente</option>
                             <option value="1" ${item.mat === 1 ? 'selected' : ''}>1 - Inicial</option>
                             <option value="2" ${item.mat === 2 ? 'selected' : ''}>2 - Definido</option>
@@ -705,26 +806,26 @@
                     <td class="py-3 px-4 align-top space-y-2">
                         <div class="flex flex-wrap items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs font-medium">
                             <label class="flex items-center gap-1.5 cursor-pointer hover:text-indigo-600">
-                                <input type="checkbox" ${item.doc ? 'checked' : ''} onchange="updateDim(${globalIndex}, 'doc', this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"> Doc.
+                                <input type="checkbox" ${item.doc ? 'checked' : ''} ${readOnlyAttribute} onchange="updateDim(${globalIndex}, 'doc', this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"> Doc.
                             </label>
                             <label class="flex items-center gap-1.5 cursor-pointer hover:text-indigo-600">
-                                <input type="checkbox" ${item.imp ? 'checked' : ''} onchange="updateDim(${globalIndex}, 'imp', this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"> Imp.
+                                <input type="checkbox" ${item.imp ? 'checked' : ''} ${readOnlyAttribute} onchange="updateDim(${globalIndex}, 'imp', this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"> Imp.
                             </label>
                             <label class="flex items-center gap-1.5 cursor-pointer hover:text-indigo-600">
-                                <input type="checkbox" ${item.mant ? 'checked' : ''} onchange="updateDim(${globalIndex}, 'mant', this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"> Mant.
+                                <input type="checkbox" ${item.mant ? 'checked' : ''} ${readOnlyAttribute} onchange="updateDim(${globalIndex}, 'mant', this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"> Mant.
                             </label>
                         </div>
                         <button onclick="openTasksModal(${globalIndex})" class="w-full text-left bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1.5 rounded-md text-xs font-semibold transition flex items-center justify-between">
                             <span><i class="fa-solid fa-list-check mr-1"></i> Tareas (${completedTasks}/${totalTasks})</span>
                             <span class="bg-indigo-200 text-indigo-800 text-[10px] px-1.5 py-0.5 rounded">${percent}%</span>
                         </button>
-                        <textarea rows="2" onchange="updateField(${globalIndex}, 'ev', this.value)" placeholder="Describa la evidencia..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.ev || ''}</textarea>
+                        <textarea ${readOnlyAttribute} rows="2" onchange="updateField(${globalIndex}, 'ev', this.value)" placeholder="Describa la evidencia..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.ev || ''}</textarea>
                     </td>
                     <td class="py-3 px-4 align-top">
-                        <textarea rows="3" onchange="updateField(${globalIndex}, 'gap', this.value)" placeholder="Describa la brecha..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.gap || ''}</textarea>
+                        <textarea ${readOnlyAttribute} rows="3" onchange="updateField(${globalIndex}, 'gap', this.value)" placeholder="Describa la brecha..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.gap || ''}</textarea>
                     </td>
                     <td class="py-3 px-4 align-top">
-                        <textarea rows="3" onchange="updateField(${globalIndex}, 'obs', this.value)" placeholder="Notas u observaciones generales..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.obs || ''}</textarea>
+                        <textarea ${readOnlyAttribute} rows="3" onchange="updateField(${globalIndex}, 'obs', this.value)" placeholder="Notas u observaciones generales..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.obs || ''}</textarea>
                     </td>
                     <td class="py-3 px-3 align-top"><span class="text-xs px-2 py-0.5 rounded ${riskBadgeClass}">${item.risk}</span></td>
                     <td class="py-3 px-3 text-xs font-medium text-slate-700 align-top">${item.pri}</td>
@@ -737,16 +838,19 @@
         }
 
         window.updateMat = function(index, val) {
+            if (!isEditor) return;
             window.isoControls[index].mat = parseInt(val);
             window.saveToCloud();
         }
 
         window.updateDim = function(index, field, val) {
+            if (!isEditor) return;
             window.isoControls[index][field] = val;
             window.saveToCloud();
         }
 
         window.updateField = function(index, field, val) {
+            if (!isEditor) return;
             window.isoControls[index][field] = val;
             window.saveToCloud();
         }
@@ -757,7 +861,7 @@
             
             document.getElementById("modal-control-id").innerText = control.id;
             document.getElementById("modal-control-title").innerText = control.name;
-            document.getElementById("tasks-close-label").innerText = "Guardar y Cerrar";
+            document.getElementById("tasks-close-label").innerText = isEditor ? "Guardar y Cerrar" : "Cerrar";
 
             const listEl = document.getElementById("modal-tasks-list");
             listEl.innerHTML = "";
@@ -773,7 +877,7 @@
                 const div = document.createElement("label");
                 div.className = "flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition cursor-pointer";
                 div.innerHTML = `
-                    <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${index}, ${tIndex}, this.checked)" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                    <input type="checkbox" ${task.done ? 'checked' : ''} ${isEditor ? '' : 'disabled'} onchange="toggleTask(${index}, ${tIndex}, this.checked)" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4">
                     <span class="text-xs text-slate-700 font-medium leading-relaxed">${task.text}</span>
                 `;
                 listEl.appendChild(div);
@@ -784,6 +888,7 @@
         }
 
         window.toggleTask = function(controlIndex, taskIndex, val) {
+            if (!isEditor) return;
             window.isoControls[controlIndex].tasks[taskIndex].done = val;
             updateModalProgress();
             window.saveToCloud();

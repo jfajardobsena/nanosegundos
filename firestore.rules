@@ -1,8 +1,20 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2026, 11, 18);
+    match /artifacts/jennifer-iso27001-app/shared_data/controls_v3 {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && request.auth.token.email == 'ing.jennifer.fajardo@gmail.com'
+        && request.auth.token.email_verified == true;
+      allow delete: if false;
+    }
+
+    match /artifacts/jennifer-iso27001-app/users/{userId}/iso_matrix_data/controls_v3 {
+      allow read: if request.auth != null
+        && (request.auth.uid == userId
+          || (request.auth.token.email == 'ing.jennifer.fajardo@gmail.com'
+            && request.auth.token.email_verified == true));
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
