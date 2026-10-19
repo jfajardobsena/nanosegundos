@@ -667,6 +667,17 @@
         async function loadFromCloud() {
             try {
                 const docRef = doc(db, 'artifacts', appId, 'shared_data', 'controls_v3');
+                const legacyUid = localStorage.getItem('isoMatrixLegacyUid');
+                const migratedLegacyUid = localStorage.getItem('isoMatrixMigratedLegacyUid');
+                if (isEditor && legacyControls && legacyUid && migratedLegacyUid !== legacyUid) {
+                    await setDoc(docRef, { controls: legacyControls, updatedAt: new Date().toISOString() });
+                    window.isoControls = legacyControls;
+                    localStorage.setItem('isoMatrixMigratedLegacyUid', legacyUid);
+                    localStorage.removeItem('isoMatrixLegacyUid');
+                    legacyControls = null;
+                    return true;
+                }
+
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     const savedData = docSnap.data().controls;
@@ -676,12 +687,6 @@
                     return true;
                 }
 
-                if (isEditor && legacyControls) {
-                    window.isoControls = legacyControls;
-                    await setDoc(docRef, { controls: legacyControls, updatedAt: new Date().toISOString() });
-                    legacyControls = null;
-                    return true;
-                }
                 return false;
             } catch (err) {
                 console.error("Error loading from cloud:", err);
