@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matriz de Evaluación GAP - 93 Controles ISO 27001 (Anexo A)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="bg-indigo-500 text-xs px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider">Práctica Profesional - Jennifer</span>
+                    <span class="text-slate-400 text-xs">ISO/IEC 27001:2022</span>
+                </div>
+                <h1 class="text-2xl font-bold mt-1 text-white flex items-center gap-2">
+                    <i class="fa-solid fa-shield-halved text-indigo-400"></i> Matriz GAP: 93 Controles Anexo A
+                </h1>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <span id="sync-status" class="text-xs bg-slate-800 text-amber-300 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1.5">
+                    <i class="fa-solid fa-cloud-arrow-up animate-pulse"></i> Conectando...
+                </span>
+                <button onclick="saveToCloud()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar en la Nube
+                </button>
+                <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-file-excel"></i> Exportar a Excel
+                </button>
+                <button onclick="resetFilters()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg text-sm font-medium transition">
+                    Limpiar Filtros
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 w-full">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs text-slate-500 uppercase font-semibold">Total Controles</p>
+                <p class="text-2xl font-bold text-slate-900 mt-1" id="stat-total">93</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs text-slate-500 uppercase font-semibold">Organizacionales (5)</p>
+                <p class="text-2xl font-bold text-indigo-600 mt-1">37</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs text-slate-500 uppercase font-semibold">Personales (6)</p>
+                <p class="text-2xl font-bold text-blue-600 mt-1">8</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs text-slate-500 uppercase font-semibold">Físicos (7)</p>
+                <p class="text-2xl font-bold text-amber-600 mt-1">14</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs text-slate-500 uppercase font-semibold">Tecnológicos (8)</p>
+                <p class="text-2xl font-bold text-emerald-600 mt-1">34</p>
+            </div>
+        </div>
+    </section>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-6 flex-grow w-full">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Buscar Control o Término</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-search"></i>
+                        </span>
+                        <input type="text" id="search-input" onkeyup="filterTable()" placeholder="Ej: criptografía, A.8.24, respaldos..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Filtrar por Dominio / Categoría</label>
+                    <select id="category-filter" onchange="filterTable()" class="w-full py-2 px-3 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                        <option value="">Todos los dominios (5. a 8.)</option>
+                        <option value="Organizacional">5. Controles Organizacionales (37)</option>
+                        <option value="Personal">6. Controles de Personal (8)</option>
+                        <option value="Físico">7. Controles Físicos (14)</option>
+                        <option value="Tecnológico">8. Controles Tecnológicos (34)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Filtrar por Nivel de Riesgo</label>
+                    <select id="risk-filter" onchange="filterTable()" class="w-full py-2 px-3 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                        <option value="">Todos los niveles de riesgo</option>
+                        <option value="Alto">Alto</option>
+                        <option value="Medio">Medio</option>
+                        <option value="Bajo">Bajo</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto max-h-[650px]">
+                <table id="controls-table" class="w-full text-left border-collapse">
+                    <thead class="bg-slate-100 text-slate-700 text-xs uppercase font-semibold sticky top-0 z-10 border-b border-slate-200">
+                        <tr>
+                            <th class="py-3 px-3">ID</th>
+                            <th class="py-3 px-3">Categoría</th>
+                            <th class="py-3 px-3">Nombre del Control (Anexo A)</th>
+                            <th class="py-3 px-3">Madurez (0-4)</th>
+                            <th class="py-3 px-4 min-w-[220px]">Estado / Evidencia Actual</th>
+                            <th class="py-3 px-4 min-w-[220px]">Brecha (GAP) Identificada</th>
+                            <th class="py-3 px-4 min-w-[200px]">Observaciones Generales</th>
+                            <th class="py-3 px-3">Riesgo</th>
+                            <th class="py-3 px-3">Prioridad</th>
+                            <th class="py-3 px-3">Responsable</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 text-sm text-slate-700" id="table-body">
+                        <!-- Data will be dynamically injected by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="bg-slate-50 px-4 py-3 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500">
+                <span id="row-count">Mostrando 93 controles</span>
+                <span>💡 Tus notas y cambios se guardan automáticamente en la nube de forma segura.</span>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'jennifer-iso27001-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "demo", projectId: "demo" };
+
+        let app, db, auth;
+        let userId = null;
+
+        // Base de datos completa de los 3 controles del Anexo A ISO/IEC 27001:2022 con enfoque en Software Dev
+        window.isoControls = [
+            // --- TEMA 5: CONTROLES ORGANIZACIONALES (37 controles) ---
+            {id: "A.5.1", cat: "Organizacional", name: "Políticas para la seguridad de la información", mat: 1, ev: "Políticas dispersas en Confluence sin aprobación formal.", gap: "Falta formalización y aprobación gerencial.", obs: "Revisar con gerencia general la próxima semana.", risk: "Medio", pri: "Media", resp: "Gerencia / TI"},
+            {id: "A.5.2", cat: "Organizacional", name: "Roles y responsabilidades de seguridad de la información", mat: 1, ev: "No hay un rol asignado formalmente de CISO o Seguridad.", gap: "Definir formalmente responsabilidades de seguridad en perfiles.", obs: "Coordinar con RRHH.", risk: "Alto", pri: "Alta", resp: "RRHH / Gerencia"},
+            {id: "A.5.3", cat: "Organizacional", name: "Segregación de funciones", mat: 2, ev: "Desarrolladores a veces suben código directamente a producción.", gap: "Implementar segregación entre dev, QA y despliegue a producción.", obs: "Evaluar permisos actuales en GitHub.", risk: "Alto", pri: "Alta", resp: "Tech Lead / DevOps"},
+            {id: "A.5.4", cat: "Organizacional", name: "Responsabilidades de la gerencia", mat: 1, ev: "La gerencia apoya pero no revisa métricas de seguridad periódicamente.", gap: "Establecer comités de seguridad trimestrales.", obs: "", risk: "Medio", pri: "Media", resp: "Gerencia General"},
+            {id: "A.5.5", cat: "Organizacional", name: "Contacto con autoridades", mat: 0, ev: "No existe procedimiento de notificación a autoridades ante filtraciones.", gap: "Crear procedimiento de respuesta ante brechas legales.", obs: "", risk: "Medio", pri: "Baja", resp: "Legal / TI"},
+            {id: "A.5.6", cat: "Organizacional", name: "Contacto con grupos de interés especial", mat: 1, ev: "Participación informal en comunidades de desarrollo y ciberseguridad.", gap: "Formalizar afiliación a centros de alerta temprana (CSIRT).", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
+            {id: "A.5.7", cat: "Organizacional", name: "Inteligencia sobre amenazas", mat: 0, ev: "No se recopila inteligencia proactiva sobre vulnerabilidades de software.", gap: "Suscribirse a boletines de CVE y reportes de amenazas.", obs: "", risk: "Medio", pri: "Media", resp: "DevOps / Seguridad"},
+            {id: "A.5.8", cat: "Organizacional", name: "Seguridad de la información en la gestión de proyectos", mat: 1, ev: "La seguridad se evalúa tarde en el ciclo de vida del software.", gap: "Integrar requisitos de seguridad desde la fase de diseño (Shift-left).", obs: "", risk: "Alto", pri: "Alta", resp: "Project Managers / Tech Lead"},
+            {id: "A.5.9", cat: "Organizacional", name: "Inventario de información y otros activos asociados", mat: 2, ev: "Inventario parcial en hojas de cálculo y repositorios de GitHub.", gap: "Centralizar inventario de activos de software y datos de clientes.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+            {id: "A.5.10", cat: "Organizacional", name: "Uso aceptable de la información y otros activos", mat: 1, ev: "Reglas generales en el contrato, sin política clara de uso de IA y datos.", gap: "Actualizar política de uso aceptable de herramientas y código.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH / TI"},
+            {id: "A.5.11", cat: "Organizacional", name: "Devolución de activos", mat: 2, ev: "Procedimiento manual al desvincular desarrolladores.", gap: "Automatizar revocación de accesos en GitHub y AWS.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH / TI"},
+            {id: "A.5.12", cat: "Organizacional", name: "Clasificación de la información", mat: 1, ev: "Datos de clientes y contraseñas no siempre etiquetados correctamente.", gap: "Definir esquema de clasificación (Público, Confidencial, Restringido).", obs: "", risk: "Alto", pri: "Alta", resp: "Seguridad / TI"},
+            {id: "A.5.13", cat: "Organizacional", name: "Etiquetado de la información", mat: 1, ev: "No se etiquetan repositorios o documentos sensibles uniformemente.", gap: "Aplicar etiquetas en repositorios de código y documentos.", obs: "", risk: "Medio", pri: "Baja", resp: "Desarrolladores"},
+            {id: "A.5.14", cat: "Organizacional", name: "Transferencia de información", mat: 2, ev: "Uso de WeTransfer o Slack sin directrices estrictas de cifrado.", gap: "Definir canales corporativos seguros aprobados.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.5.15", cat: "Organizacional", name: "Control de accesos", mat: 2, ev: "Control mediante GitHub Organizations pero faltan revisiones periódicas.", gap: "Auditar accesos a repositorios cada 3 meses (Principio de menor privilegio).", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead"},
+            {id: "A.5.16", cat: "Organizacional", name: "Gestión de identidad", mat: 2, ev: "Uso parcial de MFA (Multi-Factor Authentication) en algunas plataformas.", gap: "Exigir MFA obligatorio en GitHub, AWS, Google Workspace y VPN.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+            {id: "A.5.17", cat: "Organizacional", name: "Información de autenticación de usuario", mat: 1, ev: "Políticas de contraseñas básicas, sin gestor de contraseñas corporativo.", gap: "Implementar política robusta de contraseñas y gestor corporativo.", obs: "", risk: "Medio", pri: "Media", resp: "TI / RRHH"},
+            {id: "A.5.18", cat: "Organizacional", name: "Derechos de acceso", mat: 2, ev: "Permisos otorgados por solicitud informal en chat.", gap: "Formalizar solicitudes de acceso mediante ticket con aprobación.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.5.19", cat: "Organizacional", name: "Seguridad de la información en relaciones con proveedores", mat: 1, ev: "Contratos estándar sin anexos estrictos de seguridad de datos.", gap: "Incluir cláusulas de seguridad y SLA en contratos de proveedores.", obs: "", risk: "Alto", pri: "Alta", resp: "Legal / Gerencia"},
+            {id: "A.5.20", cat: "Organizacional", name: "Abordaje de la seguridad de la información en acuerdos con proveedores", mat: 1, ev: "No se evalúa la madurez de ciberseguridad de proveedores cloud.", gap: "Crear cuestionario de evaluación para proveedores terceros.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.5.21", cat: "Organizacional", name: "Gestión de la seguridad de la información en la cadena de suministro de TIC", mat: 1, ev: "Dependencia de librerías open-source sin revisión sistemática de origen.", gap: "Implementar análisis de dependencias Software Bill of Materials (SBOM).", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / Tech Lead"},
+            {id: "A.5.22", cat: "Organizacional", name: "Monitoreo, revisión y gestión de cambios de servicios de proveedores", mat: 1, ev: "Monitoreo reactivo de servicios externos.", gap: "Establecer revisión anual de desempeño y seguridad de proveedores clave.", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
+            {id: "A.5.23", cat: "Organizacional", name: "Seguridad de la información para el uso de servicios en la nube", mat: 2, ev: "Uso de AWS/Azure con configuraciones por defecto en algunos buckets.", gap: "Auditar configuraciones de nube contra CIS Benchmarks.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+            {id: "A.5.24", cat: "Organizacional", name: "Planificación y gestión de incidentes de seguridad de la información", mat: 1, ev: "No hay un plan documentado de respuesta a incidentes (IRP).", gap: "Redactar Plan de Respuesta a Incidentes y rutas de escalamiento.", obs: "", risk: "Alto", pri: "Alta", resp: "TI / Gerencia"},
+            {id: "A.5.25", cat: "Organizacional", name: "Evaluación y decisión sobre eventos de seguridad de la información", mat: 1, ev: "Los eventos de seguridad se atienden conforme ocurren sin registro.", gap: "Implementar bitácora de registro de incidentes.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.5.26", cat: "Organizacional", name: "Respuesta a incidentes de seguridad de la información", mat: 1, ev: "Falta de simulacros de respuesta ante brechas o ataques ransomware.", gap: "Realizar al menos un tabletop exercise (simulacro) anual.", obs: "", risk: "Medio", pri: "Media", resp: "TI / Equipo"},
+            {id: "A.5.27", cat: "Organizacional", name: "Aprendizaje de los incidentes de seguridad de la información", mat: 0, ev: "No se realizan reuniones post-mortem tras incidencias.", gap: "Instituir análisis de causa raíz obligatorios tras incidentes.", obs: "", risk: "Medio", pri: "Baja", resp: "TI"},
+            {id: "A.5.28", cat: "Organizacional", name: "Recopilación de evidencia", mat: 0, ev: "No hay protocolos de preservación de logs forenses ante ataques.", gap: "Definir protocolo básico de cadena de custodia digital.", obs: "", risk: "Bajo", pri: "Baja", resp: "Legal / TI"},
+            {id: "A.5.29", cat: "Organizacional", name: "Seguridad de la información durante interrupciones", mat: 1, ev: "Planes de contingencia básicos ante caída de servidores.", gap: "Actualizar planes de continuidad de negocio (BCP/DRP).", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.5.30", cat: "Organizacional", name: "ICT readiness for business continuity", mat: 1, ev: "Respaldos en la nube sin pruebas periódicas de restauración.", gap: "Ejecutar pruebas trimestrales de recuperación ante desastres (Disaster Recovery).", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+            {id: "A.5.31", cat: "Organizacional", name: "Requisitos legales, estatutarios, reglamentarios y contractuales", mat: 2, ev: "Cumplimiento general de leyes locales, falta revisión de leyes de privacidad.", gap: "Matriz de cumplimiento legal actualizada (ej. protección de datos personales).", obs: "", risk: "Alto", pri: "Alta", resp: "Legal"},
+            {id: "A.5.32", cat: "Organizacional", name: "Derechos de propiedad intelectual", mat: 2, ev: "Licencias de software controlado, revisión manual de librerías OSS.", gap: "Utilizar herramientas de escaneo de licencias (FOSS) en repositorios.", obs: "", risk: "Medio", pri: "Media", resp: "Tech Lead / Legal"},
+            {id: "A.5.33", cat: "Organizacional", name: "Protección de registros", mat: 1, ev: "Registros contables y legales guardados sin política estricta de retención.", gap: "Establecer tiempos de retención y destrucción segura de registros.", obs: "", risk: "Medio", pri: "Baja", resp: "Administración"},
+            {id: "A.5.34", cat: "Organizacional", name: "Privacidad y protección de información de identificación personal (PII)", mat: 1, ev: "Se tratan datos de usuarios pero faltan avisos de privacidad robustos.", gap: "Implementar controles de privacidad desde el diseño (Privacy by Design).", obs: "", risk: "Alto", pri: "Alta", resp: "Legal / Desarrollo"},
+            {id: "A.5.35", cat: "Organizacional", name: "Revisión independiente de la seguridad de la información", mat: 0, ev: "Nunca se ha realizado una auditoría externa de seguridad o pentest.", gap: "Programar auditoría externa o pentest anual.", obs: "", risk: "Alto", pri: "Alta", resp: "Gerencia"},
+            {id: "A.5.36", cat: "Organizacional", name: "Cumplimiento de políticas y normas de seguridad de la información", mat: 1, ev: "No hay revisiones formales de cumplimiento de normas internas.", gap: "Establecer auditorías internas anuales de cumplimiento normativo.", obs: "", risk: "Medio", pri: "Media", resp: "Gerencia / TI"},
+            {id: "A.5.37", cat: "Organizacional", name: "Procedimientos operativos para la gestión de TI", mat: 2, ev: "Manuales operativos informales en wikis de equipo.", gap: "Documentar procedimientos críticos de administración de sistemas.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            // --- TEMA 6: CONTROLES DE PERSONAL (8 controles) ---
+            {id: "A.6.1", cat: "Personal", name: "Selección de personal", mat: 2, ev: "Entrevistas técnicas estándar, antecedentes revisados parcialmente.", gap: "Formalizar verificación de antecedentes penales y laborales para nuevos ingresos.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH"},
+            {id: "A.6.2", cat: "Personal", name: "Términos y condiciones del empleo", mat: 2, ev: "Contratos incluyen cláusulas de confidencialidad (NDA) genéricas.", gap: "Actualizar cláusulas de propiedad intelectual y ciberseguridad en contratos.", obs: "", risk: "Alto", pri: "Alta", resp: "RRHH / Legal"},
+            {id: "A.6.3", cat: "Personal", name: "Concientización, educación y capacitación en seguridad de la información", mat: 1, ev: "Charlas ocasionales, sin programa formal ni phishing simulado.", gap: "Implementar plataforma de capacitación anual en seguridad para todo el personal.", obs: "", risk: "Alto", pri: "Alta", resp: "RRHH / TI"},
+            {id: "A.6.4", cat: "Personal", name: "Proceso disciplinario", mat: 1, ev: "Reglamento interno general de la empresa sin mención específica a brechas de datos.", gap: "Incorporar sanciones claras por negligencia en seguridad informática.", obs: "", risk: "Medio", pri: "Baja", resp: "RRHH / Legal"},
+            {id: "A.6.5", cat: "Personal", name: "Responsabilidades después de la terminación o cambio de empleo", mat: 2, ev: "Entrevistas de salida y desactivación de correos.", gap: "Checklist estricto de revocación de accesos en menos de 2 horas tras salida.", obs: "", risk: "Alto", pri: "Alta", resp: "RRHH / TI"},
+            {id: "A.6.6", cat: "Personal", name: "Acuerdos de confidencialidad o no divulgación (NDA)", mat: 2, ev: "NDAs firmados con empleados y clientes.", gap: "Auditar repositorio central de NDAs vigentes.", obs: "", risk: "Medio", pri: "Baja", resp: "Legal"},
+            {id: "A.6.7", cat: "Personal", name: "Trabajo remoto", mat: 2, ev: "Desarrolladores trabajan desde casa con VPN o accesos directos.", gap: "Establecer directrices de seguridad para redes domésticas y equipos corporativos.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+            {id: "A.6.8", cat: "Personal", name: "Informes de eventos de seguridad de personal", mat: 1, ev: "Canales informales de reporte de incidentes a RRHH.", gap: "Habilitar canal anónimo y seguro para reportar anomalías o conductas de riesgo.", obs: "", risk: "Bajo", pri: "Baja", resp: "RRHH"},
+
+            // --- TEMA 7: CONTROLES FÍSICOS (14 controles) ---
+            {id: "A.7.1", cat: "Físico", name: "Perímetros de seguridad física", mat: 2, ev: "Oficina con control de acceso por tarjeta magnética.", gap: "Mantener registro de visitas y control de puertas externas.", obs: "", risk: "Medio", pri: "Baja", resp: "Administración"},
+            {id: "A.7.2", cat: "Físico", name: "Controles de acceso físico", mat: 2, ev: "Áreas de servidores o gabinetes con llave.", gap: "Restringir acceso exclusivo a personal autorizado de infraestructura.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.7.3", cat: "Físico", name: "Seguridad en oficinas, salas y instalaciones", mat: 2, ev: "Revisión general de instalaciones.", gap: "Política de escritorio limpio y pantalla bloqueada obligatoria.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH / Todos"},
+            {id: "A.7.4", cat: "Físico", name: "Monitoreo de la seguridad física", mat: 1, ev: "Cámaras de seguridad en pasillos principales.", gap: "Revisar cobertura de cámaras en zonas críticas de servidores o equipos.", obs: "", risk: "Bajo", pri: "Baja", resp: "Administración"},
+            {id: "A.7.5", cat: "Físico", name: "Protección contra amenazas físicas y ambientales", mat: 1, ev: "Extintores en oficinas, falta sistema formal de detección de incendios en racks.", gap: "Instalar sistemas de control ambiental básico en servidores locales.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.7.6", cat: "Físico", name: "Trabajo en áreas seguras", mat: 1, ev: "Visitantes transitan libremente por áreas de desarrollo ocasionalmente.", gap: "Acompañamiento obligatorio a visitas en áreas técnicas.", obs: "", risk: "Bajo", pri: "Baja", resp: "Administración"},
+            {id: "A.7.7", cat: "Físico", name: "Política de escritorio limpio y pantalla bloqueada", mat: 1, ev: "Algún empleado deja equipos desbloqueados al almorzar.", gap: "Campañas de concientización y bloqueo automático de pantalla a los 5 mins.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH"},
+            {id: "A.7.8", cat: "Físico", name: "Ubicación y protección de equipos", mat: 2, ev: "Monitores y laptops ubicados adecuadamente.", gap: "Evitar exposición de pantallas a ventanas externas en pisos bajos.", obs: "", risk: "Bajo", pri: "Baja", resp: "Administración"},
+            {id: "A.7.9", cat: "Físico", name: "Seguridad de los activos fuera de las instalaciones", mat: 2, ev: "Laptops corporativas con cifrado BitLocker/FileVault activado parcialmente.", gap: "Hacer obligatorio el cifrado de disco completo en todas las laptops de desarrollo.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+            {id: "A.7.10", cat: "Físico", name: "Medios de almacenamiento", mat: 2, ev: "Uso de discos externos controlados.", gap: "Prohibir memorias USB no autorizadas mediante políticas de endpoint.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.7.11", cat: "Físico", name: "Servicios de suministro", mat: 2, ev: "Instalación eléctrica general con respaldo UPS básico.", gap: "Verificar autonomía de UPS en cortes de energía prolongados.", obs: "", risk: "Medio", pri: "Baja", resp: "TI"},
+            {id: "A.7.12", cat: "Físico", name: "Seguridad del cableado", mat: 1, ev: "Cableado de red estructurado visible en algunos escritorios.", gap: "Canalizar y proteger cables de red y corriente expuestos.", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
+            {id: "A.7.13", cat: "Físico", name: "Mantenimiento de equipos", mat: 2, ev: "Mantenimiento correctivo de hardware según fallas.", gap: "Establecer calendario de mantenimiento preventivo de equipos de cómputo y servidores.", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
+            {id: "A.7.14", cat: "Físico", name: "Disposición segura o reutilización de equipos", mat: 1, ev: "Equipos antiguos guardados en bodega sin borrado certificado de discos.", gap: "Aplicar borrado seguro certificado (ej. DoD 5220.22-M) antes de desechar discos.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            // --- TEMA 8: CONTROLES TECNOLÓGICOS (34 controles) ---
+            {id: "A.8.1", cat: "Tecnológico", name: "Dispositivos de usuario final", mat: 2, ev: "Laptops de desarrolladores con antivirus instalado, sin EDR avanzado.", gap: "Implementar solución EDR (Endpoint Detection and Response) centralizada.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+            {id: "A.8.2", cat: "Tecnológico", name: "Derechos de acceso a la red", mat: 2, ev: "Acceso a red interna mediante VLANs y Wi-Fi corporativo separado de invitados.", gap: "Revisar aislamiento de redes de invitados y desarrollo.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.8.3", cat: "Tecnológico", name: "Redireccionamiento de páginas web", mat: 1, ev: "Uso básico de HTTPS, redirecciones HTTP sin verificar estrictamente HSTS.", gap: "Configurar HSTS y políticas de seguridad estricta en navegadores.", obs: "", risk: "Medio", pri: "Media", resp: "DevOps"},
+            {id: "A.8.4", cat: "Tecnológico", name: "Uso de programas maliciosos (Anti-malware)", mat: 2, ev: "Antivirus instalado, actualizaciones automáticas en algunos equipos.", gap: "Centralizar consola de gestión antimalware para garantizar cobertura 100%.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+            {id: "A.8.5", cat: "Tecnológico", name: "Gestión de vulnerabilidades técnicas", mat: 1, ev: "Dependabot activo en GitHub, pero sin escaneos regulares de contenedores Docker.", gap: "Integrar escáneres SAST/DAST y escaneo de imágenes en el pipeline CI/CD.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / QA"},
+            {id: "A.8.6", cat: "Tecnológico", name: "Gestión de configuración", mat: 1, ev: "Archivos de configuración con contraseñas hardcodeadas en algunos proyectos legacy.", gap: "Auditar y mover secretos a gestores de secretos (AWS Secrets Manager, Vault).", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / Desarrolladores"},
+            {id: "A.8.7", cat: "Tecnológico", name: "Eliminación de información", mat: 1, ev: "Borrado estándar de archivos sin destrucción lógica definitiva.", gap: "Implementar políticas de borrado seguro en bases de datos y almacenamiento cloud.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.8.8", cat: "Tecnológico", name: "Gestión de almacenamiento de datos", mat: 2, ev: "Bases de datos en la nube con respaldos automáticos diarios.", gap: "Verificar integridad de respaldos mediante pruebas de restauración.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+            {id: "A.8.9", cat: "Tecnológico", name: "Restricción de acceso a la información", mat: 2, ev: "Permisos basados en roles (RBAC) en bases de datos principales.", gap: "Revisar privilegios excesivos en cuentas de servicio y APIs.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead"},
+            {id: "A.8.10", cat: "Tecnológico", name: "Sistemas de enmascaramiento de datos", mat: 0, ev: "Bases de datos de testing (QA/Staging) contienen datos reales de clientes en texto plano.", gap: "Implementar anonimización o enmascaramiento de PII en entornos no productivos.", obs: "", risk: "Alto", pri: "Alta", resp: "Desarrolladores / QA"},
+            {id: "A.8.11", cat: "Tecnológico", name: "Prevención de pérdida de datos (DLP)", mat: 0, ev: "No hay herramientas DLP instaladas en equipos o pasarelas de red.", gap: "Evaluar herramientas de prevención de fuga de datos en endpoints y correo.", obs: "", risk: "Medio", pri: "Baja", resp: "TI"},
+            {id: "A.8.12", cat: "Tecnológico", name: "Registro de actividades (Logging)", mat: 2, ev: "Logs de aplicaciones habilitados, almacenamiento centralizado limitado.", gap: "Centralizar logs en SIEM o herramienta de observabilidad con retención de 90 días.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+            {id: "A.8.13", cat: "Tecnológico", name: "Informes de seguimiento", mat: 1, ev: "Revisión manual de logs solo cuando ocurre un fallo.", gap: "Configurar alertas automáticas ante anomalías de acceso o errores críticos.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / TI"},
+            {id: "A.8.14", cat: "Tecnológico", name: "Relojes sincronizados", mat: 2, ev: "Servidores sincronizados mediante NTP estándar en AWS.", gap: "Verificar sincronización NTP en todos los equipos de red y servidores locales.", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
+            {id: "A.8.15", cat: "Tecnológico", name: "Instalación de software en sistemas operativos", mat: 1, ev: "Desarrolladores con permisos de Administrador en sus laptops.", gap: "Retirar privilegios de administrador local y gestionar software mediante catálogo aprobado.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+            {id: "A.8.16", cat: "Tecnológico", name: "Gestión de vulnerabilidades de redes", mat: 1, ev: "Escaneos de red esporádicos.", gap: "Implementar escaneos periódicos de puertos y vulnerabilidades perimetrales.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.8.17", cat: "Tecnológico", name: "Seguridad en servicios de red", mat: 2, ev: "Uso de protocolos seguros (HTTPS, SSH, SFTP).", gap: "Auditar y deshabilitar protocolos obsoletos (FTP, Telnet, HTTP plano).", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.8.18", cat: "Tecnológico", name: "Segregación en redes", mat: 2, ev: "Separación de ambientes de desarrollo, staging y producción en la nube.", gap: "Validar reglas de firewall estrictas entre subredes.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+            {id: "A.8.19", cat: "Tecnológico", name: "Servicios de web", mat: 2, ev: "Certificados SSL/TLS vigentes (Let's Encrypt / AWS ACM).", gap: "Automatizar renovación y verificar fuerza de cifrado TLS 1.3.", obs: "", risk: "Medio", pri: "Baja", resp: "DevOps"},
+            {id: "A.8.20", cat: "Tecnológico", name: "Seguridad en servicios de redes móviles", mat: 1, ev: "Conexiones móviles sin VPN obligatoria en redes públicas.", gap: "Establecer uso obligatorio de VPN corporativa al conectarse desde redes públicas.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.8.21", cat: "Tecnológico", name: "Seguridad en el desarrollo de software (SDLC seguro)", mat: 1, ev: "Desarrollo ágil sin una guía formal de codificación segura (OWASP Top 10).", gap: "Elaborar Guía de Codificación Segura y capacitar al equipo de desarrollo.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / Desarrolladores"},
+            {id: "A.8.22", cat: "Tecnológico", name: "Requisitos de seguridad en el desarrollo", mat: 1, ev: "Requisitos funcionales documentados, los de seguridad se omiten a veces.", gap: "Incluir historias de usuario de seguridad y criterios de aceptación específicos.", obs: "", risk: "Alto", pri: "Alta", resp: "Product Owner / Tech Lead"},
+            {id: "A.8.23", cat: "Tecnológico", name: "Arquitectura y principios de diseño seguro", mat: 1, ev: "Diseños de arquitectura basados en funcionalidad sin revisión de amenazas.", gap: "Aplicar modelado de amenazas (STRIDE) en nuevos módulos de software.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / Arquitecto"},
+            {id: "A.8.24", cat: "Tecnológico", name: "Uso de criptografía", mat: 0, ev: "Contraseñas y tokens en texto plano o con hashing débil (MD5/SHA1 antiguo).", gap: "Actualizar algoritmos de cifrado a AES-256 y hashing a Argon2/Bcrypt.", obs: "¡Crítico! Revisar con el equipo de backend.", risk: "Alto", pri: "Alta", resp: "Tech Lead / Desarrolladores"},
+            {id: "A.8.25", cat: "Tecnológico", name: "Ciclo de vida de desarrollo seguro", mat: 1, ev: "Faltan revisiones de código (Code Review) obligatorias por pares antes de merge.", gap: "Establecer regla de Pull Request con al menos 2 aprobaciones y escaneo estático.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead"},
+            {id: "A.8.26", cat: "Tecnológico", name: "Pruebas de seguridad en desarrollo y aceptación", mat: 1, ev: "Pruebas de funcionalidad (QA), pruebas de seguridad muy limitadas.", gap: "Incluir pruebas de seguridad automatizadas (SAST/DAST) en el pipeline de CI/CD.", obs: "", risk: "Alto", pri: "Alta", resp: "QA / DevOps"},
+            {id: "A.8.27", cat: "Tecnológico", name: "Desarrollo externalizado", mat: 1, ev: "Contratación ocasional de freelancers sin controles estrictos de código fuente.", gap: "Auditar repositorios y exigir estándares de seguridad a desarrolladores externos.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / Gerencia"},
+            {id: "A.8.28", cat: "Tecnológico", name: "Separación de entornos de desarrollo, prueba y producción", mat: 2, ev: "Ambientes separados en AWS, ocasionalmente base de datos de test usa datos reales.", gap: "Asegurar aislamiento total y datos sintéticos en entornos de prueba.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+            {id: "A.8.29", cat: "Tecnológico", name: "Gestión de cambios", mat: 1, ev: "Despliegues directos a producción sin registro formal de cambios.", gap: "Implementar control de cambios documentado y bitácora de releases.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / Tech Lead"},
+            {id: "A.8.30", cat: "Tecnológico", name: "Información de prueba", mat: 1, ev: "Uso de respaldos de producción en staging para depurar errores.", gap: "Prohibir uso de datos reales de producción en entornos de desarrollo y staging.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / QA"},
+            {id: "A.8.31", cat: "Tecnológico", name: "Protección de sistemas de información durante pruebas de auditoría", mat: 1, ev: "Pruebas de penetración se hacen sin avisar al equipo en ocasiones.", gap: "Planificar y coordinar ventanas de pruebas de seguridad y auditoría.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.8.32", cat: "Tecnológico", name: "Gestión de incidentes de continuidad", mat: 1, ev: "Procedimientos de respaldo existen, falta probar la recuperación completa.", gap: "Realizar simulacro de recuperación ante caída total de servidores cloud.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+            {id: "A.8.33", cat: "Tecnológico", name: "Pruebas de continuidad de servicios de TIC", mat: 1, ev: "Sin pruebas formales en el último año.", gap: "Programar simulacro anual de failover y disaster recovery.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / TI"},
+            {id: "A.8.34", cat: "Tecnológico", name: "Protección de sistemas contra código malicioso", mat: 2, ev: "Control antimalware en endpoints y servidores cloud principales.", gap: "Auditar cobertura y reportes de detection de malware mensualmente.", obs: "", risk: "Medio", pri: "Baja", resp: "TI"}
+        ];
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            const statusEl = document.getElementById("sync-status");
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                userId = auth.currentUser?.uid || crypto.randomUUID();
+                statusEl.innerHTML = `<i class="fa-solid fa-cloud text-emerald-400"></i> Nube Sincronizada`;
+                statusEl.className = "text-xs bg-slate-800 text-emerald-300 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1.5";
+
+                await loadFromCloud();
+            } catch (e) {
+                console.error("Auth/Cloud init error:", e);
+                statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Modo Local (Guardado automático local)`;
+            }
+
+            renderTable(window.isoControls);
+        });
+
+        async function loadFromCloud() {
+            if (!userId) return;
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'users', userId, 'iso_matrix_data', 'controls_v2');
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const savedData = docSnap.data().controls;
+                    if (Array.isArray(savedData) && savedData.length === 93) {
+                        window.isoControls = savedData;
+                    }
+                }
+            } catch (err) {
+                console.error("Error loading from cloud:", err);
+            }
+        }
+
+        window.saveToCloud = async function() {
+            const statusEl = document.getElementById("sync-status");
+            statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-indigo-400"></i> Guardando...`;
+            
+            if (!userId) {
+                statusEl.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> Guardado Local`;
+                setTimeout(() => {
+                    statusEl.innerHTML = `<i class="fa-solid fa-cloud text-emerald-400"></i> Nube Sincronizada`;
+                }, 2000);
+                return;
+            }
+
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'users', userId, 'iso_matrix_data', 'controls_v2');
+                await setDoc(docRef, { controls: window.isoControls, updatedAt: new Date().toISOString() });
+                statusEl.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> ¡Guardado en la Nube con éxito!`;
+                setTimeout(() => {
+                    statusEl.innerHTML = `<i class="fa-solid fa-cloud text-emerald-400"></i> Nube Sincronizada`;
+                }, 3000);
+            } catch (err) {
+                console.error("Save error:", err);
+                statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-rose-400"></i> Error al guardar`;
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById("table-body");
+            tbody.innerHTML = "";
+            
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400">No se encontraron controles con los filtros seleccionados.</td></tr>`;
+                document.getElementById("row-count").innerText = "Mostrando 0 controles";
+                return;
+            }
+
+            data.forEach((item) => {
+                const globalIndex = window.isoControls.findIndex(c => c.id === item.id);
+
+                let riskBadgeClass = "bg-slate-100 text-slate-800";
+                if (item.risk === "Alto") riskBadgeClass = "bg-rose-100 text-rose-800 font-semibold";
+                if (item.risk === "Medio") riskBadgeClass = "bg-amber-100 text-amber-800";
+                if (item.risk === "Bajo") riskBadgeClass = "bg-emerald-100 text-emerald-800";
+
+                let catBadgeClass = "bg-indigo-50 text-indigo-700";
+                if (item.cat === "Personal") catBadgeClass = "bg-blue-50 text-blue-700";
+                if (item.cat === "Físico") catBadgeClass = "bg-amber-50 text-amber-700";
+                if (item.cat === "Tecnológico") catBadgeClass = "bg-emerald-50 text-emerald-700";
+
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+                tr.innerHTML = `
+                    <td class="py-3 px-3 font-mono text-xs font-bold text-slate-600 align-top">${item.id}</td>
+                    <td class="py-3 px-3 align-top"><span class="text-xs px-2 py-0.5 rounded-md font-medium ${catBadgeClass}">${item.cat}</span></td>
+                    <td class="py-3 px-3 font-medium text-slate-900 text-xs align-top">${item.name}</td>
+                    <td class="py-3 px-3 text-center align-top">
+                        <select onchange="updateMat(${globalIndex}, this.value)" class="text-xs border border-slate-300 rounded px-1.5 py-1 bg-white font-semibold">
+                            <option value="0" ${item.mat === 0 ? 'selected' : ''}>0 - Inexistente</option>
+                            <option value="1" ${item.mat === 1 ? 'selected' : ''}>1 - Inicial</option>
+                            <option value="2" ${item.mat === 2 ? 'selected' : ''}>2 - Definido</option>
+                            <option value="3" ${item.mat === 3 ? 'selected' : ''}>3 - Gestionado</option>
+                            <option value="4" ${item.mat === 4 ? 'selected' : ''}>4 - Optimizado</option>
+                        </select>
+                    </td>
+                    <td class="py-3 px-4 align-top">
+                        <textarea rows="2" onchange="updateField(${globalIndex}, 'ev', this.value)" placeholder="Describa la evidencia..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.ev || ''}</textarea>
+                    </td>
+                    <td class="py-3 px-4 align-top">
+                        <textarea rows="2" onchange="updateField(${globalIndex}, 'gap', this.value)" placeholder="Describa la brecha..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.gap || ''}</textarea>
+                    </td>
+                    <td class="py-3 px-4 align-top">
+                        <textarea rows="2" onchange="updateField(${globalIndex}, 'obs', this.value)" placeholder="Notas u observaciones..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.obs || ''}</textarea>
+                    </td>
+                    <td class="py-3 px-3 align-top"><span class="text-xs px-2 py-0.5 rounded ${riskBadgeClass}">${item.risk}</span></td>
+                    <td class="py-3 px-3 text-xs font-medium text-slate-700 align-top">${item.pri}</td>
+                    <td class="py-3 px-3 text-xs text-slate-600 align-top">${item.resp}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById("row-count").innerText = `Mostrando ${data.length} de 3 controles`;
+        }
+
+        window.updateMat = function(index, val) {
+            window.isoControls[index].mat = parseInt(val);
+            window.saveToCloud();
+        }
+
+        window.updateField = function(index, field, val) {
+            window.isoControls[index][field] = val;
+            window.saveToCloud();
+        }
+
+        window.filterTable = function() {
+            const search = document.getElementById("search-input").value.toLowerCase();
+            const cat = document.getElementById("category-filter").value;
+            const risk = document.getElementById("risk-filter").value;
+
+            const filtered = window.isoControls.filter(item => {
+                const matchSearch = item.id.toLowerCase().includes(search) || item.name.toLowerCase().includes(search) || (item.ev && item.ev.toLowerCase().includes(search)) || (item.gap && item.gap.toLowerCase().includes(search)) || (item.obs && item.obs.toLowerCase().includes(search));
+                const matchCat = cat === "" || item.cat === cat;
+                const matchRisk = risk === "" || item.risk.includes(risk);
+                return matchSearch && matchCat && matchRisk;
+            });
+
+            renderTable(filtered);
+        }
+
+        window.resetFilters = function() {
+            document.getElementById("search-input").value = "";
+            document.getElementById("category-filter").value = "";
+            document.getElementById("risk-filter").value = "";
+            renderTable(window.isoControls);
+        }
+
+        window.exportToCSV = function() {
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+            csvContent += "ID Control;Categoria;Nombre del Control;Madurez;Estado / Evidencia Actual;Brecha (GAP);Observaciones Generales;Nivel de Riesgo;Prioridad;Responsable Sugerido\r\n";
+
+            window.isoControls.forEach(row => {
+                let safeName = `"${(row.name || '').replace(/"/g, '""')}"`;
+                let safeEv = `"${(row.ev || '').replace(/"/g, '""')}"`;
+                let safeGap = `"${(row.gap || '').replace(/"/g, '""')}"`;
+                let safeObs = `"${(row.obs || '').replace(/"/g, '""')}"`;
+                let safeResp = `"${(row.resp || '').replace(/"/g, '""')}"`;
+
+                let line = [row.id, row.cat, safeName, row.mat, safeEv, safeGap, safeObs, row.risk, row.pri, safeResp].join(";");
+                csvContent += line + "\r\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "Matriz_GAP_93_Controles_ISO27001_Jennifer.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
