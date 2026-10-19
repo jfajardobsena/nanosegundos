@@ -174,16 +174,16 @@
         import { getAuth, GoogleAuthProvider, linkWithPopup, onAuthStateChanged, signInAnonymously, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'jennifer-iso27001-app';
+        const appId = 'jennifer-iso2701-app';
         const firebaseConfig = {
-  apiKey: "AIzaSyDWCDbHOvYK_eBs3N9PC_zDuYj7-HgAw8U",
-  authDomain: "nanosegundos-95b4e.firebaseapp.com",
-  projectId: "nanosegundos-95b4e",
-  storageBucket: "nanosegundos-95b4e.firebasestorage.app",
-  messagingSenderId: "184675960058",
-  appId: "1:184675960058:web:b556a70ab3e22f95717543",
-  measurementId: "G-69RSXNBXTD"
-};
+            apiKey: "AIzaSyDWCDbHOvYK_eBs3N9PC_zDuYj7-HgAw8U",
+            authDomain: "nanosegundos-95b4e.firebaseapp.com",
+            projectId: "nanosegundos-95b4e",
+            storageBucket: "nanosegundos-95b4e.firebasestorage.app",
+            messagingSenderId: "184675960058",
+            appId: "1:184675960058:web:b556a70ab3e22f95717543",
+            measurementId: "G-69RSXNBXTD"
+        };
 
         const editorEmail = 'ing.jennifer.fajardo@gmail.com';
 
@@ -627,7 +627,7 @@
                 renderTable(getFilteredData());
 
                 if (loadResult === null) {
-                    statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Error de lectura · revisa las reglas de Firestore`;
+                    statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Error de lectura (${window.lastFirestoreError || 'desconocido'})`;
                 } else if (isEditor) {
                     statusEl.innerHTML = `<i class="fa-solid fa-pen-to-square text-emerald-400"></i> Editando como ${user.email}`;
                 } else {
@@ -680,6 +680,7 @@
                 return false;
             } catch (err) {
                 console.error("Error loading from cloud:", err);
+                window.lastFirestoreError = err.code || err.message;
                 return null;
             }
         }
@@ -734,7 +735,7 @@
                 }
             } catch (err) {
                 console.error("Editor sign-in error:", err);
-                alert("No se pudo iniciar sesión. Verifica que Google esté habilitado en Firebase Authentication.");
+                alert(`No se pudo iniciar sesión (${err.code || 'error'}). ${err.message || 'Revisa Firebase Authentication y los dominios autorizados.'}`);
             }
         }
 
