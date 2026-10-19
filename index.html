@@ -171,7 +171,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, getRedirectResult, linkWithRedirect, onAuthStateChanged, signInAnonymously, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, linkWithPopup, onAuthStateChanged, signInAnonymously, signInWithCredential, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const appId = 'jennifer-iso2701-app';
@@ -618,8 +618,11 @@
                 isEditor = user?.email?.toLowerCase() === editorEmail;
                 updateEditorControls();
 
-                if (user?.isAnonymous && !legacyControls) {
-                    legacyControls = await loadLegacyControls(user.uid);
+                // Linking Google to the anonymous account preserves its UID; read
+                // that account's old private matrix after the redirect returns.
+                if ((user?.isAnonymous || isEditor) && !legacyControls) {
+                    const legacyUid = isEditor ? localStorage.getItem('isoMatrixLegacyUid') || user.uid : user.uid;
+                    legacyControls = await loadLegacyControls(legacyUid);
                 }
 
                 statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-indigo-400"></i> Cargando matriz...`;
@@ -630,19 +633,20 @@
                     statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Error de lectura (${window.lastFirestoreError || 'desconocido'})`;
                 } else if (isEditor) {
                     statusEl.innerHTML = `<i class="fa-solid fa-pen-to-square text-emerald-400"></i> Editando como ${user.email}`;
+                    if (!legacyControls) localStorage.removeItem('isoMatrixLegacyUid');
                 } else {
                     statusEl.innerHTML = `<i class="fa-solid fa-eye text-sky-300"></i> Vista pública · Solo lectura`;
                 }
             });
 
             try {
-                await getRedirectResult(auth);
                 if (!auth.currentUser) {
                     await signInAnonymously(auth);
                 }
             } catch (e) {
                 console.error("Auth/Cloud init error:", e);
                 statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Error de autenticación (${e.code || 'desconocido'})`;
+                window.lastAuthError = e.code || e.message;
                 await loadFromCloud();
                 renderTable(window.isoControls);
             }
@@ -716,16 +720,32 @@
         window.loginAsEditor = async function() {
             const provider = new GoogleAuthProvider();
             provider.setCustomParameters({ prompt: 'select_account' });
+            const anonymousUser = auth.currentUser?.isAnonymous ? auth.currentUser : null;
+            if (anonymousUser) {
+                localStorage.setItem('isoMatrixLegacyUid', anonymousUser.uid);
+            }
+
             try {
-                if (auth.currentUser?.isAnonymous) {
-                    if (!legacyControls) legacyControls = await loadLegacyControls(auth.currentUser.uid);
-                    await linkWithRedirect(auth.currentUser, provider);
-                } else {
-                    await signInWithRedirect(auth, provider);
-                }
+                const signInPromise = anonymousUser
+                    ? linkWithPopup(anonymousUser, provider)
+                    : signInWithPopup(auth, provider);
+                await signInPromise;
             } catch (err) {
+                if (err.code === 'auth/credential-already-in-use' || err.code === 'auth/account-exists-with-different-credential') {
+                    const credential = GoogleAuthProvider.credentialFromError(err);
+                    if (credential) {
+                        try {
+                            await signInWithCredential(auth, credential);
+                            return;
+                        } catch (credentialError) {
+                            console.error("Google credential sign-in error:", credentialError);
+                            alert(`Google reconoció la cuenta, pero Firebase no pudo completar el acceso (${credentialError.code || 'error'}).`);
+                            return;
+                        }
+                    }
+                }
                 console.error("Editor sign-in error:", err);
-                alert(`No se pudo iniciar el acceso con Google (${err.code || 'error'}). ${err.message || 'Verifica el proveedor Google y los dominios autorizados en Firebase.'}`);
+                alert(`No se pudo iniciar el acceso con Google (${err.code || 'error'}). ${err.message || 'Comprueba que las ventanas emergentes estén permitidas para jfajardobsena.github.io.'}`);
             }
         }
 
