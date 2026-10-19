@@ -171,7 +171,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, linkWithPopup, onAuthStateChanged, signInAnonymously, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, getRedirectResult, linkWithRedirect, onAuthStateChanged, signInAnonymously, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const appId = 'jennifer-iso2701-app';
@@ -636,12 +636,13 @@
             });
 
             try {
+                await getRedirectResult(auth);
                 if (!auth.currentUser) {
                     await signInAnonymously(auth);
                 }
             } catch (e) {
                 console.error("Auth/Cloud init error:", e);
-                statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> No se pudo conectar a Firebase`;
+                statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Error de autenticación (${e.code || 'desconocido'})`;
                 await loadFromCloud();
                 renderTable(window.isoControls);
             }
@@ -718,24 +719,13 @@
             try {
                 if (auth.currentUser?.isAnonymous) {
                     if (!legacyControls) legacyControls = await loadLegacyControls(auth.currentUser.uid);
-                    try {
-                        await linkWithPopup(auth.currentUser, provider);
-                    } catch (err) {
-                        if (err.code !== 'auth/credential-already-in-use' && err.code !== 'auth/email-already-in-use') throw err;
-                        await signInWithPopup(auth, provider);
-                    }
+                    await linkWithRedirect(auth.currentUser, provider);
                 } else {
-                    await signInWithPopup(auth, provider);
-                }
-
-                if (auth.currentUser?.email?.toLowerCase() !== editorEmail) {
-                    await signOut(auth);
-                    await signInAnonymously(auth);
-                    alert(`Esta cuenta no tiene permiso de edición. Inicia sesión con ${editorEmail}.`);
+                    await signInWithRedirect(auth, provider);
                 }
             } catch (err) {
                 console.error("Editor sign-in error:", err);
-                alert(`No se pudo iniciar sesión (${err.code || 'error'}). ${err.message || 'Revisa Firebase Authentication y los dominios autorizados.'}`);
+                alert(`No se pudo iniciar el acceso con Google (${err.code || 'error'}). ${err.message || 'Verifica el proveedor Google y los dominios autorizados en Firebase.'}`);
             }
         }
 
