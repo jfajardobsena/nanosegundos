@@ -111,7 +111,7 @@
                             <th class="py-3 px-3">Categoría</th>
                             <th class="py-3 px-3">Nombre del Control (Anexo A)</th>
                             <th class="py-3 px-3">Madurez (0-4)</th>
-                            <th class="py-3 px-4 min-w-[220px]">Estado / Evidencia Actual</th>
+                            <th class="py-3 px-4 min-w-[260px]">Estado / Evidencia Actual</th>
                             <th class="py-3 px-4 min-w-[220px]">Brecha (GAP) Identificada</th>
                             <th class="py-3 px-4 min-w-[200px]">Observaciones Generales</th>
                             <th class="py-3 px-3">Riesgo</th>
@@ -126,10 +126,39 @@
             </div>
             <div class="bg-slate-50 px-4 py-3 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500">
                 <span id="row-count">Mostrando 93 controles</span>
-                <span>💡 Tus notas y cambios se guardan automáticamente en la nube de forma segura.</span>
+                <span>💡 Tus notas, estados DIM y tareas de implementación se guardan automáticamente en la nube.</span>
             </div>
         </div>
     </main>
+
+    <!-- Modal de Tareas de Implementación ISO 27001 -->
+    <div id="tasks-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+                <div>
+                    <span id="modal-control-id" class="text-xs bg-indigo-500 font-semibold px-2.5 py-1 rounded-full">A.X</span>
+                    <h3 id="modal-control-title" class="text-lg font-bold mt-1">Nombre del Control</h3>
+                </div>
+                <button onclick="closeTasksModal()" class="text-slate-400 hover:text-white p-2 text-lg transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4 flex-grow">
+                <p class="text-xs text-slate-500">
+                    📋 Marca las tareas cumplidas según los requisitos del Anexo A de ISO/IEC 27001:2022 para considerar este control correctamente implementado en la empresa de desarrollo:
+                </p>
+                <div id="modal-tasks-list" class="space-y-3">
+                    <!-- Tareas inyectadas dinámicamente -->
+                </div>
+            </div>
+            <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
+                <span id="modal-progress-text" class="text-xs font-semibold text-slate-600">0 de 0 tareas completadas</span>
+                <button onclick="closeTasksModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm">
+                    Guardar y Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -149,109 +178,420 @@
 
         let app, db, auth;
         let userId = null;
+        let activeModalIndex = null;
 
-        // Base de datos completa de los 3 controles del Anexo A ISO/IEC 27001:2022 con enfoque en Software Dev
+        // Base de datos completa de los 93 controles del Anexo A ISO/IEC 27001:2022 con tareas detalladas para cada control
         window.isoControls = [
             // --- TEMA 5: CONTROLES ORGANIZACIONALES (37 controles) ---
-            {id: "A.5.1", cat: "Organizacional", name: "Políticas para la seguridad de la información", mat: 1, ev: "Políticas dispersas en Confluence sin aprobación formal.", gap: "Falta formalización y aprobación gerencial.", obs: "Revisar con gerencia general la próxima semana.", risk: "Medio", pri: "Media", resp: "Gerencia / TI"},
-            {id: "A.5.2", cat: "Organizacional", name: "Roles y responsabilidades de seguridad de la información", mat: 1, ev: "No hay un rol asignado formalmente de CISO o Seguridad.", gap: "Definir formalmente responsabilidades de seguridad en perfiles.", obs: "Coordinar con RRHH.", risk: "Alto", pri: "Alta", resp: "RRHH / Gerencia"},
-            {id: "A.5.3", cat: "Organizacional", name: "Segregación de funciones", mat: 2, ev: "Desarrolladores a veces suben código directamente a producción.", gap: "Implementar segregación entre dev, QA y despliegue a producción.", obs: "Evaluar permisos actuales en GitHub.", risk: "Alto", pri: "Alta", resp: "Tech Lead / DevOps"},
-            {id: "A.5.4", cat: "Organizacional", name: "Responsabilidades de la gerencia", mat: 1, ev: "La gerencia apoya pero no revisa métricas de seguridad periódicamente.", gap: "Establecer comités de seguridad trimestrales.", obs: "", risk: "Medio", pri: "Media", resp: "Gerencia General"},
-            {id: "A.5.5", cat: "Organizacional", name: "Contacto con autoridades", mat: 0, ev: "No existe procedimiento de notificación a autoridades ante filtraciones.", gap: "Crear procedimiento de respuesta ante brechas legales.", obs: "", risk: "Medio", pri: "Baja", resp: "Legal / TI"},
-            {id: "A.5.6", cat: "Organizacional", name: "Contacto con grupos de interés especial", mat: 1, ev: "Participación informal en comunidades de desarrollo y ciberseguridad.", gap: "Formalizar afiliación a centros de alerta temprana (CSIRT).", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
-            {id: "A.5.7", cat: "Organizacional", name: "Inteligencia sobre amenazas", mat: 0, ev: "No se recopila inteligencia proactiva sobre vulnerabilidades de software.", gap: "Suscribirse a boletines de CVE y reportes de amenazas.", obs: "", risk: "Medio", pri: "Media", resp: "DevOps / Seguridad"},
-            {id: "A.5.8", cat: "Organizacional", name: "Seguridad de la información en la gestión de proyectos", mat: 1, ev: "La seguridad se evalúa tarde en el ciclo de vida del software.", gap: "Integrar requisitos de seguridad desde la fase de diseño (Shift-left).", obs: "", risk: "Alto", pri: "Alta", resp: "Project Managers / Tech Lead"},
-            {id: "A.5.9", cat: "Organizacional", name: "Inventario de información y otros activos asociados", mat: 2, ev: "Inventario parcial en hojas de cálculo y repositorios de GitHub.", gap: "Centralizar inventario de activos de software y datos de clientes.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
-            {id: "A.5.10", cat: "Organizacional", name: "Uso aceptable de la información y otros activos", mat: 1, ev: "Reglas generales en el contrato, sin política clara de uso de IA y datos.", gap: "Actualizar política de uso aceptable de herramientas y código.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH / TI"},
-            {id: "A.5.11", cat: "Organizacional", name: "Devolución de activos", mat: 2, ev: "Procedimiento manual al desvincular desarrolladores.", gap: "Automatizar revocación de accesos en GitHub y AWS.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH / TI"},
-            {id: "A.5.12", cat: "Organizacional", name: "Clasificación de la información", mat: 1, ev: "Datos de clientes y contraseñas no siempre etiquetados correctamente.", gap: "Definir esquema de clasificación (Público, Confidencial, Restringido).", obs: "", risk: "Alto", pri: "Alta", resp: "Seguridad / TI"},
-            {id: "A.5.13", cat: "Organizacional", name: "Etiquetado de la información", mat: 1, ev: "No se etiquetan repositorios o documentos sensibles uniformemente.", gap: "Aplicar etiquetas en repositorios de código y documentos.", obs: "", risk: "Medio", pri: "Baja", resp: "Desarrolladores"},
-            {id: "A.5.14", cat: "Organizacional", name: "Transferencia de información", mat: 2, ev: "Uso de WeTransfer o Slack sin directrices estrictas de cifrado.", gap: "Definir canales corporativos seguros aprobados.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.5.15", cat: "Organizacional", name: "Control de accesos", mat: 2, ev: "Control mediante GitHub Organizations pero faltan revisiones periódicas.", gap: "Auditar accesos a repositorios cada 3 meses (Principio de menor privilegio).", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead"},
-            {id: "A.5.16", cat: "Organizacional", name: "Gestión de identidad", mat: 2, ev: "Uso parcial de MFA (Multi-Factor Authentication) en algunas plataformas.", gap: "Exigir MFA obligatorio en GitHub, AWS, Google Workspace y VPN.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
-            {id: "A.5.17", cat: "Organizacional", name: "Información de autenticación de usuario", mat: 1, ev: "Políticas de contraseñas básicas, sin gestor de contraseñas corporativo.", gap: "Implementar política robusta de contraseñas y gestor corporativo.", obs: "", risk: "Medio", pri: "Media", resp: "TI / RRHH"},
-            {id: "A.5.18", cat: "Organizacional", name: "Derechos de acceso", mat: 2, ev: "Permisos otorgados por solicitud informal en chat.", gap: "Formalizar solicitudes de acceso mediante ticket con aprobación.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.5.19", cat: "Organizacional", name: "Seguridad de la información en relaciones con proveedores", mat: 1, ev: "Contratos estándar sin anexos estrictos de seguridad de datos.", gap: "Incluir cláusulas de seguridad y SLA en contratos de proveedores.", obs: "", risk: "Alto", pri: "Alta", resp: "Legal / Gerencia"},
-            {id: "A.5.20", cat: "Organizacional", name: "Abordaje de la seguridad de la información en acuerdos con proveedores", mat: 1, ev: "No se evalúa la madurez de ciberseguridad de proveedores cloud.", gap: "Crear cuestionario de evaluación para proveedores terceros.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.5.21", cat: "Organizacional", name: "Gestión de la seguridad de la información en la cadena de suministro de TIC", mat: 1, ev: "Dependencia de librerías open-source sin revisión sistemática de origen.", gap: "Implementar análisis de dependencias Software Bill of Materials (SBOM).", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / Tech Lead"},
-            {id: "A.5.22", cat: "Organizacional", name: "Monitoreo, revisión y gestión de cambios de servicios de proveedores", mat: 1, ev: "Monitoreo reactivo de servicios externos.", gap: "Establecer revisión anual de desempeño y seguridad de proveedores clave.", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
-            {id: "A.5.23", cat: "Organizacional", name: "Seguridad de la información para el uso de servicios en la nube", mat: 2, ev: "Uso de AWS/Azure con configuraciones por defecto en algunos buckets.", gap: "Auditar configuraciones de nube contra CIS Benchmarks.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
-            {id: "A.5.24", cat: "Organizacional", name: "Planificación y gestión de incidentes de seguridad de la información", mat: 1, ev: "No hay un plan documentado de respuesta a incidentes (IRP).", gap: "Redactar Plan de Respuesta a Incidentes y rutas de escalamiento.", obs: "", risk: "Alto", pri: "Alta", resp: "TI / Gerencia"},
-            {id: "A.5.25", cat: "Organizacional", name: "Evaluación y decisión sobre eventos de seguridad de la información", mat: 1, ev: "Los eventos de seguridad se atienden conforme ocurren sin registro.", gap: "Implementar bitácora de registro de incidentes.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.5.26", cat: "Organizacional", name: "Respuesta a incidentes de seguridad de la información", mat: 1, ev: "Falta de simulacros de respuesta ante brechas o ataques ransomware.", gap: "Realizar al menos un tabletop exercise (simulacro) anual.", obs: "", risk: "Medio", pri: "Media", resp: "TI / Equipo"},
-            {id: "A.5.27", cat: "Organizacional", name: "Aprendizaje de los incidentes de seguridad de la información", mat: 0, ev: "No se realizan reuniones post-mortem tras incidencias.", gap: "Instituir análisis de causa raíz obligatorios tras incidentes.", obs: "", risk: "Medio", pri: "Baja", resp: "TI"},
-            {id: "A.5.28", cat: "Organizacional", name: "Recopilación de evidencia", mat: 0, ev: "No hay protocolos de preservación de logs forenses ante ataques.", gap: "Definir protocolo básico de cadena de custodia digital.", obs: "", risk: "Bajo", pri: "Baja", resp: "Legal / TI"},
-            {id: "A.5.29", cat: "Organizacional", name: "Seguridad de la información durante interrupciones", mat: 1, ev: "Planes de contingencia básicos ante caída de servidores.", gap: "Actualizar planes de continuidad de negocio (BCP/DRP).", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.5.30", cat: "Organizacional", name: "ICT readiness for business continuity", mat: 1, ev: "Respaldos en la nube sin pruebas periódicas de restauración.", gap: "Ejecutar pruebas trimestrales de recuperación ante desastres (Disaster Recovery).", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
-            {id: "A.5.31", cat: "Organizacional", name: "Requisitos legales, estatutarios, reglamentarios y contractuales", mat: 2, ev: "Cumplimiento general de leyes locales, falta revisión de leyes de privacidad.", gap: "Matriz de cumplimiento legal actualizada (ej. protección de datos personales).", obs: "", risk: "Alto", pri: "Alta", resp: "Legal"},
-            {id: "A.5.32", cat: "Organizacional", name: "Derechos de propiedad intelectual", mat: 2, ev: "Licencias de software controlado, revisión manual de librerías OSS.", gap: "Utilizar herramientas de escaneo de licencias (FOSS) en repositorios.", obs: "", risk: "Medio", pri: "Media", resp: "Tech Lead / Legal"},
-            {id: "A.5.33", cat: "Organizacional", name: "Protección de registros", mat: 1, ev: "Registros contables y legales guardados sin política estricta de retención.", gap: "Establecer tiempos de retención y destrucción segura de registros.", obs: "", risk: "Medio", pri: "Baja", resp: "Administración"},
-            {id: "A.5.34", cat: "Organizacional", name: "Privacidad y protección de información de identificación personal (PII)", mat: 1, ev: "Se tratan datos de usuarios pero faltan avisos de privacidad robustos.", gap: "Implementar controles de privacidad desde el diseño (Privacy by Design).", obs: "", risk: "Alto", pri: "Alta", resp: "Legal / Desarrollo"},
-            {id: "A.5.35", cat: "Organizacional", name: "Revisión independiente de la seguridad de la información", mat: 0, ev: "Nunca se ha realizado una auditoría externa de seguridad o pentest.", gap: "Programar auditoría externa o pentest anual.", obs: "", risk: "Alto", pri: "Alta", resp: "Gerencia"},
-            {id: "A.5.36", cat: "Organizacional", name: "Cumplimiento de políticas y normas de seguridad de la información", mat: 1, ev: "No hay revisiones formales de cumplimiento de normas internas.", gap: "Establecer auditorías internas anuales de cumplimiento normativo.", obs: "", risk: "Medio", pri: "Media", resp: "Gerencia / TI"},
-            {id: "A.5.37", cat: "Organizacional", name: "Procedimientos operativos para la gestión de TI", mat: 2, ev: "Manuales operativos informales en wikis de equipo.", gap: "Documentar procedimientos críticos de administración de sistemas.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.5.1", cat: "Organizacional", name: "Políticas para la seguridad de la información", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Redactar política general de seguridad de la información alineada con la dirección.", done: false},
+                {id: 2, text: "Aprobar formalmente la política por la Gerencia General.", done: false},
+                {id: 3, text: "Publicar y difundir la política en canales accesibles a todo el personal.", done: false},
+                {id: 4, text: "Establecer revisión anual de la política.", done: false}
+            ], ev: "Políticas dispersas en Confluence sin aprobación formal.", gap: "Falta formalización y aprobación gerencial.", obs: "Revisar con gerencia general la próxima semana.", risk: "Medio", pri: "Media", resp: "Gerencia / TI"},
+            
+            {id: "A.5.2", cat: "Organizacional", name: "Roles y responsabilidades de seguridad de la información", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Definir roles de seguridad (CISO o responsable de TI/Seguridad).", done: false},
+                {id: 2, text: "Asignar responsabilidades de seguridad en los descriptores de puesto.", done: false},
+                {id: 3, text: "Comunicar las responsabilidades individuales a cada colaborador.", done: false}
+            ], ev: "No hay un rol asignado formalmente de CISO o Seguridad.", gap: "Definir formalmente responsabilidades de seguridad en perfiles.", obs: "Coordinar con RRHH.", risk: "Alto", pri: "Alta", resp: "RRHH / Gerencia"},
+
+            {id: "A.5.3", cat: "Organizacional", name: "Segregación de funciones", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Identificar funciones incompatibles en el desarrollo y despliegue (Dev vs Prod).", done: false},
+                {id: 2, text: "Implementar controles técnicos para evitar que desarrolladores suban código sin QA.", done: false},
+                {id: 3, text: "Auditar periódicamente los permisos de acceso a entornos críticos.", done: false}
+            ], ev: "Desarrolladores a veces suben código directamente a producción.", gap: "Implementar segregación entre dev, QA y despliegue a producción.", obs: "Evaluar permisos actuales en GitHub.", risk: "Alto", pri: "Alta", resp: "Tech Lead / DevOps"},
+
+            {id: "A.5.4", cat: "Organizacional", name: "Responsabilidades de la gerencia", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Exigir cumplimiento de los requisitos de seguridad en los equipos de trabajo.", done: false},
+                {id: 2, text: "Revisar métricas y estado del sistema de gestión trimestralmente.", done: false}
+            ], ev: "La gerencia apoya pero no revisa métricas de seguridad periódicamente.", gap: "Establecer comités de seguridad trimestrales.", obs: "", risk: "Medio", pri: "Media", resp: "Gerencia General"},
+
+            {id: "A.5.5", cat: "Organizacional", name: "Contacto con autoridades", mat: 0, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Identificar autoridades regulatorias y organismos de ciberseguridad relevantes.", done: false},
+                {id: 2, text: "Crear procedimiento de notificación ante incidentes legales o brechas de datos.", done: false}
+            ], ev: "No existe procedimiento de notificación a autoridades ante filtraciones.", gap: "Crear procedimiento de respuesta ante brechas legales.", obs: "", risk: "Medio", pri: "Baja", resp: "Legal / TI"},
+
+            {id: "A.5.6", cat: "Organizacional", name: "Contacto con grupos de interés especial", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Establecer participación en foros, comunidades de ciberseguridad o CSIRT sectoriales.", done: false}
+            ], ev: "Participación informal en comunidades de desarrollo y ciberseguridad.", gap: "Formalizar afiliación a centros de alerta temprana (CSIRT).", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
+
+            {id: "A.5.7", cat: "Organizacional", name: "Inteligencia sobre amenazas", mat: 0, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Suscribirse a fuentes de inteligencia de amenazas y avisos de vulnerabilidades (CVE).", done: false},
+                {id: 2, text: "Analizar impacto de nuevas amenazas en el software desarrollado.", done: false}
+            ], ev: "No se recopila inteligencia proactiva sobre vulnerabilidades de software.", gap: "Suscribirse a boletines de CVE y reportes de amenazas.", obs: "", risk: "Medio", pri: "Media", resp: "DevOps / Seguridad"},
+
+            {id: "A.5.8", cat: "Organizacional", name: "Seguridad de la información en la gestión de proyectos", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Integrar requisitos de seguridad en cada fase del ciclo de vida del proyecto (SDLC).", done: false},
+                {id: 2, text: "Designar responsables de seguridad en los equipos de desarrollo agile.", done: false}
+            ], ev: "La seguridad se evalúa tarde en el ciclo de vida del software.", gap: "Integrar requisitos de seguridad desde la fase de diseño (Shift-left).", obs: "", risk: "Alto", pri: "Alta", resp: "Project Managers / Tech Lead"},
+
+            {id: "A.5.9", cat: "Organizacional", name: "Inventario de información y otros activos asociados", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Identificar y catalogar todos los activos de información y repositorios de código.", done: false},
+                {id: 2, text: "Asignar un propietario (asset owner) a cada activo crítico.", done: false},
+                {id: 3, text: "Mantener actualizado el inventario en plataforma centralizada.", done: false}
+            ], ev: "Inventario parcial en hojas de cálculo y repositorios de GitHub.", gap: "Centralizar inventario de activos de software y datos de clientes.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+
+            {id: "A.5.10", cat: "Organizacional", name: "Uso aceptable de la información y otros activos", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Redactar reglas de uso aceptable para equipos, correo, internet y herramientas de IA.", done: false},
+                {id: 2, text: "Hacer firmar la aceptación de la política a todo el personal.", done: false}
+            ], ev: "Reglas generales en el contrato, sin política clara de uso de IA y datos.", gap: "Actualizar política de uso aceptable de herramientas y código.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH / TI"},
+
+            {id: "A.5.11", cat: "Organizacional", name: "Devolución de activos", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Establecer checklist de devolución de equipos y revocación de credenciales al finalizar relación laboral.", done: false}
+            ], ev: "Procedimiento manual al desvincular desarrolladores.", gap: "Automatizar revocación de accesos en GitHub y AWS.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH / TI"},
+
+            {id: "A.5.12", cat: "Organizacional", name: "Clasificación de la información", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Definir esquema de clasificación (Público, Interno, Confidencial, Restringido).", done: false},
+                {id: 2, text: "Clasificar bases de datos de clientes y repositorios de código sensibles.", done: false}
+            ], ev: "Datos de clientes y contraseñas no siempre etiquetados correctamente.", gap: "Definir esquema de clasificación (Público, Confidencial, Restringido).", obs: "", risk: "Alto", pri: "Alta", resp: "Seguridad / TI"},
+
+            {id: "A.5.13", cat: "Organizacional", name: "Etiquetado de la información", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Aplicar procedimientos para etiquetar documentos y repositorios según su clasificación.", done: false}
+            ], ev: "No se etiquetan repositorios o documentos sensibles uniformemente.", gap: "Aplicar etiquetas en repositorios de código y documentos.", obs: "", risk: "Medio", pri: "Baja", resp: "Desarrolladores"},
+
+            {id: "A.5.14", cat: "Organizacional", name: "Transferencia de información", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Definir acuerdos y canales seguros aprobados para transferir datos con clientes.", done: false},
+                {id: 2, text: "Prohibir el uso de plataformas no corporativas para enviar código o PII.", done: false}
+            ], ev: "Uso de WeTransfer o Slack sin directrices estrictas de cifrado.", gap: "Definir canales corporativos seguros aprobados.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.5.15", cat: "Organizacional", name: "Control de accesos", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Establecer política de control de acceso basada en el principio de menor privilegio.", done: false},
+                {id: 2, text: "Revisar accesos a repositorios y servidores trimestralmente.", done: false}
+            ], ev: "Control mediante GitHub Organizations pero faltan revisiones periódicas.", gap: "Auditar accesos a repositorios cada 3 meses (Principio de menor privilegio).", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead"},
+
+            {id: "A.5.16", cat: "Organizacional", name: "Gestión de identidad", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Implementar ciclo de vida de identidades digitales (alta, modificación, baja).", done: false},
+                {id: 2, text: "Exigir autenticación multifactor (MFA) obligatoria en plataformas corporativas.", done: false}
+            ], ev: "Uso parcial de MFA (Multi-Factor Authentication) en algunas plataformas.", gap: "Exigir MFA obligatorio en GitHub, AWS, Google Workspace y VPN.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+
+            {id: "A.5.17", cat: "Organizacional", name: "Información de autenticación de usuario", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Definir política robusta de contraseñas (longitud, complejidad, caducidad).", done: false},
+                {id: 2, text: "Implementar gestor de contraseñas corporativo.", done: false}
+            ], ev: "Políticas de contraseñas básicas, sin gestor de contraseñas corporativo.", gap: "Implementar política robusta de contraseñas y gestor corporativo.", obs: "", risk: "Medio", pri: "Media", resp: "TI / RRHH"},
+
+            {id: "A.5.18", cat: "Organizacional", name: "Derechos de acceso", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Gestionar concesión de derechos de acceso mediante tickets con aprobación formal.", done: false}
+            ], ev: "Permisos otorgados por solicitud informal en chat.", gap: "Formalizar solicitudes de acceso mediante ticket con aprobación.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.5.19", cat: "Organizacional", name: "Seguridad de la información en relaciones con proveedores", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Incluir requisitos de seguridad y acuerdos de nivel de servicio (SLA) en contratos de proveedores.", done: false}
+            ], ev: "Contratos estándar sin anexos estrictos de seguridad de datos.", gap: "Incluir cláusulas de seguridad y SLA en contratos de proveedores.", obs: "", risk: "Alto", pri: "Alta", resp: "Legal / Gerencia"},
+
+            {id: "A.5.20", cat: "Organizacional", name: "Abordaje de la seguridad en acuerdos con proveedores", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Evaluar la postura de ciberseguridad de proveedores cloud y terceros críticos antes de contratarlos.", done: false}
+            ], ev: "No se evalúa la madurez de ciberseguridad de proveedores cloud.", gap: "Crear cuestionario de evaluación para proveedores terceros.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.5.21", cat: "Organizacional", name: "Gestión de la seguridad en la cadena de suministro de TIC", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Revisar seguridad de librerías open-source y componentes de terceros utilizados en desarrollo.", done: false},
+                {id: 2, text: "Implementar generación de SBOM (Software Bill of Materials).", done: false}
+            ], ev: "Dependencia de librerías open-source sin revisión sistemática de origen.", gap: "Implementar análisis de dependencias Software Bill of Materials (SBOM).", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / Tech Lead"},
+
+            {id: "A.5.22", cat: "Organizacional", name: "Monitoreo y revisión de servicios de proveedores", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Monitorear el desempeño y cumplimiento de seguridad de servicios provistos por terceros.", done: false}
+            ], ev: "Monitoreo reactivo de servicios externos.", gap: "Establecer revisión anual de desempeño y seguridad de proveedores clave.", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
+
+            {id: "A.5.23", cat: "Organizacional", name: "Seguridad en el uso de servicios en la nube", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Establecer políticas de configuración segura para entornos cloud (AWS, Azure, GCP).", done: false},
+                {id: 2, text: "Auditar configuraciones contra marcos de referencia (CIS Benchmarks).", done: false}
+            ], ev: "Uso de AWS/Azure con configuraciones por defecto en algunos buckets.", gap: "Auditar configuraciones de nube contra CIS Benchmarks.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+
+            {id: "A.5.24", cat: "Organizacional", name: "Planificación y gestión de incidentes de seguridad", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Redactar Plan de Respuesta a Incidentes (IRP) con roles claros.", done: false},
+                {id: 2, text: "Definir canales de comunicación y rutas de escalamiento.", done: false}
+            ], ev: "No hay un plan documentado de respuesta a incidentes (IRP).", gap: "Redactar Plan de Respuesta a Incidentes y rutas de escalamiento.", obs: "", risk: "Alto", pri: "Alta", resp: "TI / Gerencia"},
+
+            {id: "A.5.25", cat: "Organizacional", name: "Evaluación y decisión sobre eventos de seguridad", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Establecer criterios para evaluar si un evento de seguridad constituye un incidente real.", done: false}
+            ], ev: "Los eventos de seguridad se atienden conforme ocurren sin registro.", gap: "Implementar bitácora de registro de incidentes.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.5.26", cat: "Organizacional", name: "Respuesta a incidentes de seguridad de la información", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Ejecutar acciones de contención, erradicación y recuperación ante incidentes.", done: false},
+                {id: 2, text: "Realizar simulacros (tabletop exercises) anuales.", done: false}
+            ], ev: "Falta de simulacros de respuesta ante brechas o ataques ransomware.", gap: "Realizar al menos un tabletop exercise (simulacro) anual.", obs: "", risk: "Medio", pri: "Media", resp: "TI / Equipo"},
+
+            {id: "A.5.27", cat: "Organizacional", name: "Aprendizaje de los incidentes de seguridad", mat: 0, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Realizar reuniones post-mortem obligatorias tras cada incidente relevante.", done: false},
+                {id: 2, text: "Actualizar controles preventivos en base a lecciones aprendidas.", done: false}
+            ], ev: "No se realizan reuniones post-mortem tras incidencias.", gap: "Instituir análisis de causa raíz obligatorios tras incidentes.", obs: "", risk: "Medio", pri: "Baja", resp: "TI"},
+
+            {id: "A.5.28", cat: "Organizacional", name: "Recopilación de evidencia", mat: 0, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Definir protocolos y cadena de custodia para preservar evidencias digitales forenses.", done: false}
+            ], ev: "No hay protocolos de preservación de logs forenses ante ataques.", gap: "Definir protocolo básico de cadena de custodia digital.", obs: "", risk: "Bajo", pri: "Baja", resp: "Legal / TI"},
+
+            {id: "A.5.29", cat: "Organizacional", name: "Seguridad durante interrupciones", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Planificar la continuidad de la seguridad durante caídas de servicio o emergencias.", done: false}
+            ], ev: "Planes de contingencia básicos ante caída de servidores.", gap: "Actualizar planes de continuidad de negocio (BCP/DRP).", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.5.30", cat: "Organizacional", name: "ICT readiness for business continuity", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Garantizar disponibilidad de respaldos y redundancia de infraestructura tecnológica.", done: false},
+                {id: 2, text: "Probar la restauración de sistemas periódicamente.", done: false}
+            ], ev: "Respaldos en la nube sin pruebas periódicas de restauración.", gap: "Ejecutar pruebas trimestrales de recuperación ante desastres (Disaster Recovery).", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+
+            {id: "A.5.31", cat: "Organizacional", name: "Requisitos legales, estatutarios y reglamentarios", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Identificar leyes aplicables (protección de datos, propiedad intelectual, ciberseguridad).", done: false},
+                {id: 2, text: "Mantener matriz de cumplimiento legal actualizada.", done: false}
+            ], ev: "Cumplimiento general de leyes locales, falta revisión de leyes de privacidad.", gap: "Matriz de cumplimiento legal actualizada (ej. protección de datos personales).", obs: "", risk: "Alto", pri: "Alta", resp: "Legal"},
+
+            {id: "A.5.32", cat: "Organizacional", name: "Derechos de propiedad intelectual", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Asegurar el uso legal de licencias de software y librerías en desarrollo.", done: false},
+                {id: 2, text: "Usar herramientas de escaneo de licencias (FOSS).", done: false}
+            ], ev: "Licencias de software controlado, revisión manual de librerías OSS.", gap: "Utilizar herramientas de escaneo de licencias (FOSS) en repositorios.", obs: "", risk: "Medio", pri: "Media", resp: "Tech Lead / Legal"},
+
+            {id: "A.5.33", cat: "Organizacional", name: "Protección de registros", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Establecer política de retención, almacenamiento y destrucción segura de registros legales y contables.", done: false}
+            ], ev: "Registros contables y legales guardados sin política estricta de retención.", gap: "Establecer tiempos de retención y destrucción segura de registros.", obs: "", risk: "Medio", pri: "Baja", resp: "Administración"},
+
+            {id: "A.5.34", cat: "Organizacional", name: "Privacidad y protección de PII", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Implementar principios de privacidad desde el diseño (Privacy by Design).", done: false},
+                {id: 2, text: "Publicar avisos de privacidad claros para usuarios y clientes.", done: false}
+            ], ev: "Se tratan datos de usuarios pero faltan avisos de privacidad robustos.", gap: "Implementar controles de privacidad desde el diseño (Privacy by Design).", obs: "", risk: "Alto", pri: "Alta", resp: "Legal / Desarrollo"},
+
+            {id: "A.5.35", cat: "Organizacional", name: "Revisión independiente de la seguridad", mat: 0, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Contratar auditorías externas o pruebas de penetración (pentest) anuales.", done: false}
+            ], ev: "Nunca se ha realizado una auditoría externa de seguridad o pentest.", gap: "Programar auditoría externa o pentest anual.", obs: "", risk: "Alto", pri: "Alta", resp: "Gerencia"},
+
+            {id: "A.5.36", cat: "Organizacional", name: "Cumplimiento de políticas y normas de seguridad", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Realizar auditorías internas anuales para verificar el cumplimiento de las políticas de seguridad.", done: false}
+            ], ev: "No hay revisiones formales de cumplimiento de normas internas.", gap: "Establecer auditorías internas anuales de cumplimiento normativo.", obs: "", risk: "Medio", pri: "Media", resp: "Gerencia / TI"},
+
+            {id: "A.5.37", cat: "Organizacional", name: "Procedimientos operativos para la gestión de TI", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Documentar manuales y procedimientos operativos estándar para administración de sistemas y redes.", done: false}
+            ], ev: "Manuales operativos informales en wikis de equipo.", gap: "Documentar procedimientos críticos de administración de sistemas.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
 
             // --- TEMA 6: CONTROLES DE PERSONAL (8 controles) ---
-            {id: "A.6.1", cat: "Personal", name: "Selección de personal", mat: 2, ev: "Entrevistas técnicas estándar, antecedentes revisados parcialmente.", gap: "Formalizar verificación de antecedentes penales y laborales para nuevos ingresos.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH"},
-            {id: "A.6.2", cat: "Personal", name: "Términos y condiciones del empleo", mat: 2, ev: "Contratos incluyen cláusulas de confidencialidad (NDA) genéricas.", gap: "Actualizar cláusulas de propiedad intelectual y ciberseguridad en contratos.", obs: "", risk: "Alto", pri: "Alta", resp: "RRHH / Legal"},
-            {id: "A.6.3", cat: "Personal", name: "Concientización, educación y capacitación en seguridad de la información", mat: 1, ev: "Charlas ocasionales, sin programa formal ni phishing simulado.", gap: "Implementar plataforma de capacitación anual en seguridad para todo el personal.", obs: "", risk: "Alto", pri: "Alta", resp: "RRHH / TI"},
-            {id: "A.6.4", cat: "Personal", name: "Proceso disciplinario", mat: 1, ev: "Reglamento interno general de la empresa sin mención específica a brechas de datos.", gap: "Incorporar sanciones claras por negligencia en seguridad informática.", obs: "", risk: "Medio", pri: "Baja", resp: "RRHH / Legal"},
-            {id: "A.6.5", cat: "Personal", name: "Responsabilidades después de la terminación o cambio de empleo", mat: 2, ev: "Entrevistas de salida y desactivación de correos.", gap: "Checklist estricto de revocación de accesos en menos de 2 horas tras salida.", obs: "", risk: "Alto", pri: "Alta", resp: "RRHH / TI"},
-            {id: "A.6.6", cat: "Personal", name: "Acuerdos de confidencialidad o no divulgación (NDA)", mat: 2, ev: "NDAs firmados con empleados y clientes.", gap: "Auditar repositorio central de NDAs vigentes.", obs: "", risk: "Medio", pri: "Baja", resp: "Legal"},
-            {id: "A.6.7", cat: "Personal", name: "Trabajo remoto", mat: 2, ev: "Desarrolladores trabajan desde casa con VPN o accesos directos.", gap: "Establecer directrices de seguridad para redes domésticas y equipos corporativos.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
-            {id: "A.6.8", cat: "Personal", name: "Informes de eventos de seguridad de personal", mat: 1, ev: "Canales informales de reporte de incidentes a RRHH.", gap: "Habilitar canal anónimo y seguro para reportar anomalías o conductas de riesgo.", obs: "", risk: "Bajo", pri: "Baja", resp: "RRHH"},
+            {id: "A.6.1", cat: "Personal", name: "Selección de personal", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Verificar antecedentes laborales, penales y referencias de candidatos antes de contratarlos.", done: false}
+            ], ev: "Entrevistas técnicas estándar, antecedentes revisados parcialmente.", gap: "Formalizar verificación de antecedentes penales y laborales para nuevos ingresos.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH"},
+
+            {id: "A.6.2", cat: "Personal", name: "Términos y condiciones del empleo", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Incluir cláusulas de confidencialidad, propiedad intelectual y ciberseguridad en contratos laborales.", done: false}
+            ], ev: "Contratos incluyen cláusulas de confidencialidad (NDA) genéricas.", gap: "Actualizar cláusulas de propiedad intelectual y ciberseguridad en contratos.", obs: "", risk: "Alto", pri: "Alta", resp: "RRHH / Legal"},
+
+            {id: "A.6.3", cat: "Personal", name: "Concientización y capacitación en seguridad", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Implementar programa anual de capacitación en seguridad para todo el personal.", done: false},
+                {id: 2, text: "Realizar simulacros de phishing periódicos.", done: false}
+            ], ev: "Charlas ocasionales, sin programa formal ni phishing simulado.", gap: "Implementar plataforma de capacitación anual en seguridad para todo el personal.", obs: "", risk: "Alto", pri: "Alta", resp: "RRHH / TI"},
+
+            {id: "A.6.4", cat: "Personal", name: "Proceso disciplinario", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Establecer sanciones claras en el reglamento interno ante violaciones de seguridad de la información.", done: false}
+            ], ev: "Reglamento interno general de la empresa sin mención específica a brechas de datos.", gap: "Incorporar sanciones claras por negligencia en seguridad informática.", obs: "", risk: "Medio", pri: "Baja", resp: "RRHH / Legal"},
+
+            {id: "A.6.5", cat: "Personal", name: "Responsabilidades tras terminación o cambio de empleo", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Establecer protocolo de salida para revocar accesos y reasignar responsabilidades inmediatamente.", done: false}
+            ], ev: "Entrevistas de salida y desactivación de correos.", gap: "Checklist estricto de revocación de accesos en menos de 2 horas tras salida.", obs: "", risk: "Alto", pri: "Alta", resp: "RRHH / TI"},
+
+            {id: "A.6.6", cat: "Personal", name: "Acuerdos de confidencialidad (NDA)", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Asegurar firma de acuerdos de confidencialidad vigentes con empleados, externos y socios.", done: false}
+            ], ev: "NDAs firmados con empleados y clientes.", gap: "Auditar repositorio central de NDAs vigentes.", obs: "", risk: "Medio", pri: "Baja", resp: "Legal"},
+
+            {id: "A.6.7", cat: "Personal", name: "Trabajo remoto", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Definir directrices de seguridad para trabajo desde casa (VPN obligatoria, redes seguras, equipos corporativos).", done: false}
+            ], ev: "Desarrolladores trabajan desde casa con VPN o accesos directos.", gap: "Establecer directrices de seguridad para redes domésticas y equipos corporativos.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+
+            {id: "A.6.8", cat: "Personal", name: "Informes de eventos de seguridad de personal", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Habilitar canal seguro y confidencial para reportar comportamientos anómalos o de riesgo.", done: false}
+            ], ev: "Canales informales de reporte de incidentes a RRHH.", gap: "Habilitar canal anónimo y seguro para reportar anomalías o conductas de riesgo.", obs: "", risk: "Bajo", pri: "Baja", resp: "RRHH"},
 
             // --- TEMA 7: CONTROLES FÍSICOS (14 controles) ---
-            {id: "A.7.1", cat: "Físico", name: "Perímetros de seguridad física", mat: 2, ev: "Oficina con control de acceso por tarjeta magnética.", gap: "Mantener registro de visitas y control de puertas externas.", obs: "", risk: "Medio", pri: "Baja", resp: "Administración"},
-            {id: "A.7.2", cat: "Físico", name: "Controles de acceso físico", mat: 2, ev: "Áreas de servidores o gabinetes con llave.", gap: "Restringir acceso exclusivo a personal autorizado de infraestructura.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.7.3", cat: "Físico", name: "Seguridad en oficinas, salas y instalaciones", mat: 2, ev: "Revisión general de instalaciones.", gap: "Política de escritorio limpio y pantalla bloqueada obligatoria.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH / Todos"},
-            {id: "A.7.4", cat: "Físico", name: "Monitoreo de la seguridad física", mat: 1, ev: "Cámaras de seguridad en pasillos principales.", gap: "Revisar cobertura de cámaras en zonas críticas de servidores o equipos.", obs: "", risk: "Bajo", pri: "Baja", resp: "Administración"},
-            {id: "A.7.5", cat: "Físico", name: "Protección contra amenazas físicas y ambientales", mat: 1, ev: "Extintores en oficinas, falta sistema formal de detección de incendios en racks.", gap: "Instalar sistemas de control ambiental básico en servidores locales.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.7.6", cat: "Físico", name: "Trabajo en áreas seguras", mat: 1, ev: "Visitantes transitan libremente por áreas de desarrollo ocasionalmente.", gap: "Acompañamiento obligatorio a visitas en áreas técnicas.", obs: "", risk: "Bajo", pri: "Baja", resp: "Administración"},
-            {id: "A.7.7", cat: "Físico", name: "Política de escritorio limpio y pantalla bloqueada", mat: 1, ev: "Algún empleado deja equipos desbloqueados al almorzar.", gap: "Campañas de concientización y bloqueo automático de pantalla a los 5 mins.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH"},
-            {id: "A.7.8", cat: "Físico", name: "Ubicación y protección de equipos", mat: 2, ev: "Monitores y laptops ubicados adecuadamente.", gap: "Evitar exposición de pantallas a ventanas externas en pisos bajos.", obs: "", risk: "Bajo", pri: "Baja", resp: "Administración"},
-            {id: "A.7.9", cat: "Físico", name: "Seguridad de los activos fuera de las instalaciones", mat: 2, ev: "Laptops corporativas con cifrado BitLocker/FileVault activado parcialmente.", gap: "Hacer obligatorio el cifrado de disco completo en todas las laptops de desarrollo.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
-            {id: "A.7.10", cat: "Físico", name: "Medios de almacenamiento", mat: 2, ev: "Uso de discos externos controlados.", gap: "Prohibir memorias USB no autorizadas mediante políticas de endpoint.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.7.11", cat: "Físico", name: "Servicios de suministro", mat: 2, ev: "Instalación eléctrica general con respaldo UPS básico.", gap: "Verificar autonomía de UPS en cortes de energía prolongados.", obs: "", risk: "Medio", pri: "Baja", resp: "TI"},
-            {id: "A.7.12", cat: "Físico", name: "Seguridad del cableado", mat: 1, ev: "Cableado de red estructurado visible en algunos escritorios.", gap: "Canalizar y proteger cables de red y corriente expuestos.", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
-            {id: "A.7.13", cat: "Físico", name: "Mantenimiento de equipos", mat: 2, ev: "Mantenimiento correctivo de hardware según fallas.", gap: "Establecer calendario de mantenimiento preventivo de equipos de cómputo y servidores.", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
-            {id: "A.7.14", cat: "Físico", name: "Disposición segura o reutilización de equipos", mat: 1, ev: "Equipos antiguos guardados en bodega sin borrado certificado de discos.", gap: "Aplicar borrado seguro certificado (ej. DoD 5220.22-M) antes de desechar discos.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+            {id: "A.7.1", cat: "Físico", name: "Perímetros de seguridad física", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Definir perímetros y controles de acceso a oficinas (tarjetas magnéticas, recepción).", done: false}
+            ], ev: "Oficina con control de acceso por tarjeta magnética.", gap: "Mantener registro de visitas y control de puertas externas.", obs: "", risk: "Medio", pri: "Baja", resp: "Administración"},
+
+            {id: "A.7.2", cat: "Físico", name: "Controles de acceso físico", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Restringir acceso a salas de servidores y áreas de almacenamiento crítico.", done: false}
+            ], ev: "Áreas de servidores o gabinetes con llave.", gap: "Restringir acceso exclusivo a personal autorizado de infraestructura.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.7.3", cat: "Físico", name: "Seguridad en oficinas, salas y instalaciones", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Diseñar e implementar controles físicos de seguridad en oficinas y despachos.", done: false}
+            ], ev: "Revisión general de instalaciones.", gap: "Política de escritorio limpio y pantalla bloqueada obligatoria.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH / Todos"},
+
+            {id: "A.7.4", cat: "Físico", name: "Monitoreo de la seguridad física", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Instalar y revisar cobertura de cámaras de seguridad y alarmas en puntos críticos.", done: false}
+            ], ev: "Cámaras de seguridad en pasillos principales.", gap: "Revisar cobertura de cámaras en zonas críticas de servidores o equipos.", obs: "", risk: "Bajo", pri: "Baja", resp: "Administración"},
+
+            {id: "A.7.5", cat: "Físico", name: "Protección contra amenazas físicas y ambientales", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Instalar sistemas de detección de incendios, control de temperatura y protección eléctrica en racks.", done: false}
+            ], ev: "Extintores en oficinas, falta sistema formal de detección de incendios en racks.", gap: "Instalar sistemas de control ambiental básico en servidores locales.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.7.6", cat: "Físico", name: "Trabajo en áreas seguras", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Establecer reglas para acompañamiento de visitantes en zonas técnicas.", done: false}
+            ], ev: "Visitantes transitan libremente por áreas de desarrollo ocasionalmente.", gap: "Acompañamiento obligatorio a visitas en áreas técnicas.", obs: "", risk: "Bajo", pri: "Baja", resp: "Administración"},
+
+            {id: "A.7.7", cat: "Físico", name: "Política de escritorio limpio y pantalla bloqueada", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Establecer obligación de bloquear equipos al alejarse y no dejar documentos sensibles expuestos.", done: false}
+            ], ev: "Algún empleado deja equipos desbloqueados al almorzar.", gap: "Campañas de concientización y bloqueo automático de pantalla a los 5 mins.", obs: "", risk: "Medio", pri: "Media", resp: "RRHH"},
+
+            {id: "A.7.8", cat: "Físico", name: "Ubicación y protección de equipos", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Ubicar equipos de forma que se minimicen riesgos de robo o visualización por ventanas.", done: false}
+            ], ev: "Monitores y laptops ubicados adecuadamente.", gap: "Evitar exposición de pantallas a ventanas externas en pisos bajos.", obs: "", risk: "Bajo", pri: "Baja", resp: "Administración"},
+
+            {id: "A.7.9", cat: "Físico", name: "Seguridad de los activos fuera de las instalaciones", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Exigir cifrado de disco completo (BitLocker/FileVault) en laptops y dispositivos móviles.", done: false}
+            ], ev: "Laptops corporativas con cifrado BitLocker/FileVault activado parcialmente.", gap: "Hacer obligatorio el cifrado de disco completo en todas las laptops de desarrollo.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+
+            {id: "A.7.10", cat: "Físico", name: "Medios de almacenamiento", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Controlar el uso de discos externos, memorias USB y medios extraíbles.", done: false}
+            ], ev: "Uso de discos externos controlados.", gap: "Prohibir memorias USB no autorizadas mediante políticas de endpoint.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.7.11", cat: "Físico", name: "Servicios de suministro", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Asegurar suministro eléctrico estable con UPS y sistemas de respaldo.", done: false}
+            ], ev: "Instalación eléctrica general con respaldo UPS básico.", gap: "Verificar autonomía de UPS en cortes de energía prolongados.", obs: "", risk: "Medio", pri: "Baja", resp: "TI"},
+
+            {id: "A.7.12", cat: "Físico", name: "Seguridad del cableado", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Canalizar y proteger cables de red y corriente para evitar daños o manipulaciones.", done: false}
+            ], ev: "Cableado de red estructurado visible en algunos escritorios.", gap: "Canalizar y proteger cables de red y corriente expuestos.", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
+
+            {id: "A.7.13", cat: "Físico", name: "Mantenimiento de equipos", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Establecer calendario de mantenimiento preventivo de hardware e infraestructura.", done: false}
+            ], ev: "Mantenimiento correctivo de hardware según fallas.", gap: "Establecer calendario de mantenimiento preventivo de equipos de cómputo y servidores.", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
+
+            {id: "A.7.14", cat: "Físico", name: "Disposición segura o reutilización de equipos", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Aplicar borrado seguro certificado (ej. DoD 5220.22-M) antes de desechar o reciclar discos.", done: false}
+            ], ev: "Equipos antiguos guardados en bodega sin borrado certificado de discos.", gap: "Aplicar borrado seguro certificado (ej. DoD 5220.22-M) antes de desechar discos.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
 
             // --- TEMA 8: CONTROLES TECNOLÓGICOS (34 controles) ---
-            {id: "A.8.1", cat: "Tecnológico", name: "Dispositivos de usuario final", mat: 2, ev: "Laptops de desarrolladores con antivirus instalado, sin EDR avanzado.", gap: "Implementar solución EDR (Endpoint Detection and Response) centralizada.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
-            {id: "A.8.2", cat: "Tecnológico", name: "Derechos de acceso a la red", mat: 2, ev: "Acceso a red interna mediante VLANs y Wi-Fi corporativo separado de invitados.", gap: "Revisar aislamiento de redes de invitados y desarrollo.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.8.3", cat: "Tecnológico", name: "Redireccionamiento de páginas web", mat: 1, ev: "Uso básico de HTTPS, redirecciones HTTP sin verificar estrictamente HSTS.", gap: "Configurar HSTS y políticas de seguridad estricta en navegadores.", obs: "", risk: "Medio", pri: "Media", resp: "DevOps"},
-            {id: "A.8.4", cat: "Tecnológico", name: "Uso de programas maliciosos (Anti-malware)", mat: 2, ev: "Antivirus instalado, actualizaciones automáticas en algunos equipos.", gap: "Centralizar consola de gestión antimalware para garantizar cobertura 100%.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
-            {id: "A.8.5", cat: "Tecnológico", name: "Gestión de vulnerabilidades técnicas", mat: 1, ev: "Dependabot activo en GitHub, pero sin escaneos regulares de contenedores Docker.", gap: "Integrar escáneres SAST/DAST y escaneo de imágenes en el pipeline CI/CD.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / QA"},
-            {id: "A.8.6", cat: "Tecnológico", name: "Gestión de configuración", mat: 1, ev: "Archivos de configuración con contraseñas hardcodeadas en algunos proyectos legacy.", gap: "Auditar y mover secretos a gestores de secretos (AWS Secrets Manager, Vault).", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / Desarrolladores"},
-            {id: "A.8.7", cat: "Tecnológico", name: "Eliminación de información", mat: 1, ev: "Borrado estándar de archivos sin destrucción lógica definitiva.", gap: "Implementar políticas de borrado seguro en bases de datos y almacenamiento cloud.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.8.8", cat: "Tecnológico", name: "Gestión de almacenamiento de datos", mat: 2, ev: "Bases de datos en la nube con respaldos automáticos diarios.", gap: "Verificar integridad de respaldos mediante pruebas de restauración.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
-            {id: "A.8.9", cat: "Tecnológico", name: "Restricción de acceso a la información", mat: 2, ev: "Permisos basados en roles (RBAC) en bases de datos principales.", gap: "Revisar privilegios excesivos en cuentas de servicio y APIs.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead"},
-            {id: "A.8.10", cat: "Tecnológico", name: "Sistemas de enmascaramiento de datos", mat: 0, ev: "Bases de datos de testing (QA/Staging) contienen datos reales de clientes en texto plano.", gap: "Implementar anonimización o enmascaramiento de PII en entornos no productivos.", obs: "", risk: "Alto", pri: "Alta", resp: "Desarrolladores / QA"},
-            {id: "A.8.11", cat: "Tecnológico", name: "Prevención de pérdida de datos (DLP)", mat: 0, ev: "No hay herramientas DLP instaladas en equipos o pasarelas de red.", gap: "Evaluar herramientas de prevención de fuga de datos en endpoints y correo.", obs: "", risk: "Medio", pri: "Baja", resp: "TI"},
-            {id: "A.8.12", cat: "Tecnológico", name: "Registro de actividades (Logging)", mat: 2, ev: "Logs de aplicaciones habilitados, almacenamiento centralizado limitado.", gap: "Centralizar logs en SIEM o herramienta de observabilidad con retención de 90 días.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
-            {id: "A.8.13", cat: "Tecnológico", name: "Informes de seguimiento", mat: 1, ev: "Revisión manual de logs solo cuando ocurre un fallo.", gap: "Configurar alertas automáticas ante anomalías de acceso o errores críticos.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / TI"},
-            {id: "A.8.14", cat: "Tecnológico", name: "Relojes sincronizados", mat: 2, ev: "Servidores sincronizados mediante NTP estándar en AWS.", gap: "Verificar sincronización NTP en todos los equipos de red y servidores locales.", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
-            {id: "A.8.15", cat: "Tecnológico", name: "Instalación de software en sistemas operativos", mat: 1, ev: "Desarrolladores con permisos de Administrador en sus laptops.", gap: "Retirar privilegios de administrador local y gestionar software mediante catálogo aprobado.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
-            {id: "A.8.16", cat: "Tecnológico", name: "Gestión de vulnerabilidades de redes", mat: 1, ev: "Escaneos de red esporádicos.", gap: "Implementar escaneos periódicos de puertos y vulnerabilidades perimetrales.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.8.17", cat: "Tecnológico", name: "Seguridad en servicios de red", mat: 2, ev: "Uso de protocolos seguros (HTTPS, SSH, SFTP).", gap: "Auditar y deshabilitar protocolos obsoletos (FTP, Telnet, HTTP plano).", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.8.18", cat: "Tecnológico", name: "Segregación en redes", mat: 2, ev: "Separación de ambientes de desarrollo, staging y producción en la nube.", gap: "Validar reglas de firewall estrictas entre subredes.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
-            {id: "A.8.19", cat: "Tecnológico", name: "Servicios de web", mat: 2, ev: "Certificados SSL/TLS vigentes (Let's Encrypt / AWS ACM).", gap: "Automatizar renovación y verificar fuerza de cifrado TLS 1.3.", obs: "", risk: "Medio", pri: "Baja", resp: "DevOps"},
-            {id: "A.8.20", cat: "Tecnológico", name: "Seguridad en servicios de redes móviles", mat: 1, ev: "Conexiones móviles sin VPN obligatoria en redes públicas.", gap: "Establecer uso obligatorio de VPN corporativa al conectarse desde redes públicas.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.8.21", cat: "Tecnológico", name: "Seguridad en el desarrollo de software (SDLC seguro)", mat: 1, ev: "Desarrollo ágil sin una guía formal de codificación segura (OWASP Top 10).", gap: "Elaborar Guía de Codificación Segura y capacitar al equipo de desarrollo.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / Desarrolladores"},
-            {id: "A.8.22", cat: "Tecnológico", name: "Requisitos de seguridad en el desarrollo", mat: 1, ev: "Requisitos funcionales documentados, los de seguridad se omiten a veces.", gap: "Incluir historias de usuario de seguridad y criterios de aceptación específicos.", obs: "", risk: "Alto", pri: "Alta", resp: "Product Owner / Tech Lead"},
-            {id: "A.8.23", cat: "Tecnológico", name: "Arquitectura y principios de diseño seguro", mat: 1, ev: "Diseños de arquitectura basados en funcionalidad sin revisión de amenazas.", gap: "Aplicar modelado de amenazas (STRIDE) en nuevos módulos de software.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / Arquitecto"},
-            {id: "A.8.24", cat: "Tecnológico", name: "Uso de criptografía", mat: 0, ev: "Contraseñas y tokens en texto plano o con hashing débil (MD5/SHA1 antiguo).", gap: "Actualizar algoritmos de cifrado a AES-256 y hashing a Argon2/Bcrypt.", obs: "¡Crítico! Revisar con el equipo de backend.", risk: "Alto", pri: "Alta", resp: "Tech Lead / Desarrolladores"},
-            {id: "A.8.25", cat: "Tecnológico", name: "Ciclo de vida de desarrollo seguro", mat: 1, ev: "Faltan revisiones de código (Code Review) obligatorias por pares antes de merge.", gap: "Establecer regla de Pull Request con al menos 2 aprobaciones y escaneo estático.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead"},
-            {id: "A.8.26", cat: "Tecnológico", name: "Pruebas de seguridad en desarrollo y aceptación", mat: 1, ev: "Pruebas de funcionalidad (QA), pruebas de seguridad muy limitadas.", gap: "Incluir pruebas de seguridad automatizadas (SAST/DAST) en el pipeline de CI/CD.", obs: "", risk: "Alto", pri: "Alta", resp: "QA / DevOps"},
-            {id: "A.8.27", cat: "Tecnológico", name: "Desarrollo externalizado", mat: 1, ev: "Contratación ocasional de freelancers sin controles estrictos de código fuente.", gap: "Auditar repositorios y exigir estándares de seguridad a desarrolladores externos.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / Gerencia"},
-            {id: "A.8.28", cat: "Tecnológico", name: "Separación de entornos de desarrollo, prueba y producción", mat: 2, ev: "Ambientes separados en AWS, ocasionalmente base de datos de test usa datos reales.", gap: "Asegurar aislamiento total y datos sintéticos en entornos de prueba.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
-            {id: "A.8.29", cat: "Tecnológico", name: "Gestión de cambios", mat: 1, ev: "Despliegues directos a producción sin registro formal de cambios.", gap: "Implementar control de cambios documentado y bitácora de releases.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / Tech Lead"},
-            {id: "A.8.30", cat: "Tecnológico", name: "Información de prueba", mat: 1, ev: "Uso de respaldos de producción en staging para depurar errores.", gap: "Prohibir uso de datos reales de producción en entornos de desarrollo y staging.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / QA"},
-            {id: "A.8.31", cat: "Tecnológico", name: "Protección de sistemas de información durante pruebas de auditoría", mat: 1, ev: "Pruebas de penetración se hacen sin avisar al equipo en ocasiones.", gap: "Planificar y coordinar ventanas de pruebas de seguridad y auditoría.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
-            {id: "A.8.32", cat: "Tecnológico", name: "Gestión de incidentes de continuidad", mat: 1, ev: "Procedimientos de respaldo existen, falta probar la recuperación completa.", gap: "Realizar simulacro de recuperación ante caída total de servidores cloud.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
-            {id: "A.8.33", cat: "Tecnológico", name: "Pruebas de continuidad de servicios de TIC", mat: 1, ev: "Sin pruebas formales en el último año.", gap: "Programar simulacro anual de failover y disaster recovery.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / TI"},
-            {id: "A.8.34", cat: "Tecnológico", name: "Protección de sistemas contra código malicioso", mat: 2, ev: "Control antimalware en endpoints y servidores cloud principales.", gap: "Auditar cobertura y reportes de detection de malware mensualmente.", obs: "", risk: "Medio", pri: "Baja", resp: "TI"}
+            {id: "A.8.1", cat: "Tecnológico", name: "Dispositivos de usuario final", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Instalar agentes EDR (Endpoint Detection and Response) y antimalware en equipos.", done: false},
+                {id: 2, text: "Garantizar actualizaciones automáticas del sistema operativo.", done: false}
+            ], ev: "Laptops de desarrolladores con antivirus instalado, sin EDR avanzado.", gap: "Implementar solución EDR (Endpoint Detection and Response) centralizada.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+
+            {id: "A.8.2", cat: "Tecnológico", name: "Derechos de acceso a la red", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Segmentar redes corporativas mediante VLANs y separar Wi-Fi de invitados.", done: false}
+            ], ev: "Acceso a red interna mediante VLANs y Wi-Fi corporativo separado de invitados.", gap: "Revisar aislamiento de redes de invitados y desarrollo.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.8.3", cat: "Tecnológico", name: "Redireccionamiento de páginas web", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Configurar HSTS y redireccionamientos seguros HTTPS obligatorios.", done: false}
+            ], ev: "Uso básico de HTTPS, redirecciones HTTP sin verificar estrictamente HSTS.", gap: "Configurar HSTS y políticas de seguridad estricta en navegadores.", obs: "", risk: "Medio", pri: "Media", resp: "DevOps"},
+
+            {id: "A.8.4", cat: "Tecnológico", name: "Uso de programas maliciosos (Anti-malware)", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Centralizar consola antimalware con reportes de cobertura al 100%.", done: false}
+            ], ev: "Antivirus instalado, actualizaciones automáticas en algunos equipos.", gap: "Centralizar consola de gestión antimalware para garantizar cobertura 100%.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+
+            {id: "A.8.5", cat: "Tecnológico", name: "Gestión de vulnerabilidades técnicas", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Integrar escáneres SAST, DAST y análisis de contenedores en el pipeline CI/CD.", done: false},
+                {id: 2, text: "Establecer plazos de remediación de vulnerabilidades encontradas.", done: false}
+            ], ev: "Dependabot activo en GitHub, pero sin escaneos regulares de contenedores Docker.", gap: "Integrar escáneres SAST/DAST y escaneo de imágenes en el pipeline CI/CD.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / QA"},
+
+            {id: "A.8.6", cat: "Tecnológico", name: "Gestión de configuración", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Eliminar contraseñas y secretos hardcodeados en repositorios de código.", done: false},
+                {id: 2, text: "Utilizar gestores de secretos (AWS Secrets Manager, HashiCorp Vault).", done: false}
+            ], ev: "Archivos de configuración con contraseñas hardcodeadas en algunos proyectos legacy.", gap: "Auditar y mover secretos a gestores de secretos (AWS Secrets Manager, Vault).", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / Desarrolladores"},
+
+            {id: "A.8.7", cat: "Tecnológico", name: "Eliminación de información", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Aplicar borrado lógico y físico definitivo de datos obsoletos en bases de datos y cloud.", done: false}
+            ], ev: "Borrado estándar de archivos sin destrucción lógica definitiva.", gap: "Implementar políticas de borrado seguro en bases de datos y almacenamiento cloud.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.8.8", cat: "Tecnológico", name: "Gestión de almacenamiento de datos", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Configurar respaldos automáticos diarios y verificar integridad mediante pruebas de restauración.", done: false}
+            ], ev: "Bases de datos en la nube con respaldos automáticos diarios.", gap: "Verificar integridad de respaldos mediante pruebas de restauración.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+
+            {id: "A.8.9", cat: "Tecnológico", name: "Restricción de acceso a la información", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Aplicar control de acceso basado en roles (RBAC) en bases de datos y APIs.", done: false}
+            ], ev: "Permisos basados en roles (RBAC) en bases de datos principales.", gap: "Revisar privilegios excesivos en cuentas de servicio y APIs.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead"},
+
+            {id: "A.8.10", cat: "Tecnológico", name: "Sistemas de enmascaramiento de datos", mat: 0, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Anonimizar o enmascarar información de identificación personal (PII) en entornos de prueba y QA.", done: false}
+            ], ev: "Bases de datos de testing (QA/Staging) contienen datos reales de clientes en texto plano.", gap: "Implementar anonimización o enmascaramiento de PII en entornos no productivos.", obs: "", risk: "Alto", pri: "Alta", resp: "Desarrolladores / QA"},
+
+            {id: "A.8.11", cat: "Tecnológico", name: "Prevención de pérdida de datos (DLP)", mat: 0, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Evaluar e implementar herramientas DLP para prevenir la filtración de datos sensibles.", done: false}
+            ], ev: "No hay herramientas DLP instaladas en equipos o pasarelas de red.", gap: "Evaluar herramientas de prevención de fuga de datos en endpoints y correo.", obs: "", risk: "Medio", pri: "Baja", resp: "TI"},
+
+            {id: "A.8.12", cat: "Tecnológico", name: "Registro de actividades (Logging)", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Habilitar logging detallado en aplicaciones y centralizar en SIEM con retención de 90 días.", done: false}
+            ], ev: "Logs de aplicaciones habilitados, almacenamiento centralizado limitado.", gap: "Centralizar logs en SIEM o herramienta de observabilidad con retención de 90 días.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+
+            {id: "A.8.13", cat: "Tecnológico", name: "Informes de seguimiento", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Configurar alertas automáticas ante anomalías de acceso, errores críticos o fallos en sistemas.", done: false}
+            ], ev: "Revisión manual de logs solo cuando ocurre un fallo.", gap: "Configurar alertas automáticas ante anomalías de acceso o errores críticos.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / TI"},
+
+            {id: "A.8.14", cat: "Tecnológico", name: "Relojes sincronizados", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Sincronizar todos los servidores y equipos mediante protocolo NTP estándar.", done: false}
+            ], ev: "Servidores sincronizados mediante NTP estándar en AWS.", gap: "Verificar sincronización NTP en todos los equipos de red y servidores locales.", obs: "", risk: "Bajo", pri: "Baja", resp: "TI"},
+
+            {id: "A.8.15", cat: "Tecnológico", name: "Instalación de software en sistemas operativos", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Retirar permisos de administrador local a usuarios y gestionar software mediante catálogo.", done: false}
+            ], ev: "Desarrolladores con permisos de Administrador en sus laptops.", gap: "Retirar privilegios de administrador local y gestionar software mediante catálogo aprobado.", obs: "", risk: "Alto", pri: "Alta", resp: "TI"},
+
+            {id: "A.8.16", cat: "Tecnológico", name: "Gestión de vulnerabilidades de redes", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Realizar escaneos periódicos de puertos y vulnerabilidades perimetrales.", done: false}
+            ], ev: "Escaneos de red esporádicos.", gap: "Implementar escaneos periódicos de puertos y vulnerabilidades perimetrales.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.8.17", cat: "Tecnológico", name: "Seguridad en servicios de red", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Deshabilitar protocolos obsoletos o inseguros (FTP plano, Telnet, HTTP).", done: false}
+            ], ev: "Uso de protocolos seguros (HTTPS, SSH, SFTP).", gap: "Auditar y deshabilitar protocolos obsoletos (FTP, Telnet, HTTP plano).", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.8.18", cat: "Tecnológico", name: "Segregación en redes", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Aislar estrictamente los entornos de desarrollo, staging y producción mediante reglas de firewall.", done: false}
+            ], ev: "Separación de ambientes de desarrollo, staging y producción en la nube.", gap: "Validar reglas de firewall estrictas entre subredes.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+
+            {id: "A.8.19", cat: "Tecnológico", name: "Servicios web", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Mantener certificados SSL/TLS vigentes y forzar cifrado robusto TLS 1.3.", done: false}
+            ], ev: "Certificados SSL/TLS vigentes (Let's Encrypt / AWS ACM).", gap: "Automatizar renovación y verificar fuerza de cifrado TLS 1.3.", obs: "", risk: "Medio", pri: "Baja", resp: "DevOps"},
+
+            {id: "A.8.20", cat: "Tecnológico", name: "Seguridad en redes móviles", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Exigir uso obligatorio de VPN corporativa al conectarse desde redes públicas.", done: false}
+            ], ev: "Conexiones móviles sin VPN obligatoria en redes públicas.", gap: "Establecer uso obligatorio de VPN corporativa al conectarse desde redes públicas.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.8.21", cat: "Tecnológico", name: "Seguridad en el desarrollo de software (SDLC)", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Elaborar Guía de Codificación Segura basada en OWASP Top 10.", done: false},
+                {id: 2, text: "Capacitar a los desarrolladores en buenas prácticas de programación defensiva.", done: false}
+            ], ev: "Desarrollo ágil sin una guía formal de codificación segura (OWASP Top 10).", gap: "Elaborar Guía de Codificación Segura y capacitar al equipo de desarrollo.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / Desarrolladores"},
+
+            {id: "A.8.22", cat: "Tecnológico", name: "Requisitos de seguridad en el desarrollo", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Incluir historias de usuario de seguridad y criterios de aceptación específicos en los sprints.", done: false}
+            ], ev: "Requisitos funcionales documentados, los de seguridad se omiten a veces.", gap: "Incluir historias de usuario de seguridad y criterios de aceptación específicos.", obs: "", risk: "Alto", pri: "Alta", resp: "Product Owner / Tech Lead"},
+
+            {id: "A.8.23", cat: "Tecnológico", name: "Arquitectura y principios de diseño seguro", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Aplicar modelado de amenazas (STRIDE) en el diseño de nuevas funcionalidades.", done: false}
+            ], ev: "Diseños de arquitectura basados en funcionalidad sin revisión de amenazas.", gap: "Aplicar modelado de amenazas (STRIDE) en nuevos módulos de software.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / Arquitecto"},
+
+            {id: "A.8.24", cat: "Tecnológico", name: "Uso de criptografía", mat: 0, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Actualizar algoritmos de cifrado en reposo a AES-256.", done: false},
+                {id: 2, text: "Utilizar funciones de hashing robustas (Argon2 / Bcrypt) para contraseñas.", done: false},
+                {id: 3, text: "Cifrar datos sensibles en tránsito mediante TLS moderno.", done: false}
+            ], ev: "Contraseñas y tokens en texto plano o con hashing débil (MD5/SHA1 antiguo).", gap: "Actualizar algoritmos de cifrado a AES-256 y hashing a Argon2/Bcrypt.", obs: "¡Crítico! Revisar con el equipo de backend.", risk: "Alto", pri: "Alta", resp: "Tech Lead / Desarrolladores"},
+
+            {id: "A.8.25", cat: "Tecnológico", name: "Ciclo de vida de desarrollo seguro (Code Review)", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Establecer revisión obligatoria de código (Pull Request con al menos 2 aprobaciones) antes de merge.", done: false}
+            ], ev: "Faltan revisiones de código (Code Review) obligatorias por pares antes de merge.", gap: "Establecer regla de Pull Request con al menos 2 aprobaciones y escaneo estático.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead"},
+
+            {id: "A.8.26", cat: "Tecnológico", name: "Pruebas de seguridad en desarrollo y aceptación", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Ejecutar pruebas automatizadas de seguridad (SAST/DAST) en fases de aceptación.", done: false}
+            ], ev: "Pruebas de funcionalidad (QA), pruebas de seguridad muy limitadas.", gap: "Incluir pruebas de seguridad automatizadas (SAST/DAST) en el pipeline de CI/CD.", obs: "", risk: "Alto", pri: "Alta", resp: "QA / DevOps"},
+
+            {id: "A.8.27", cat: "Tecnológico", name: "Desarrollo externalizado", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Auditar repositorios y exigir los mismos estándares de seguridad a freelancers y desarrolladores externos.", done: false}
+            ], ev: "Contratación ocasional de freelancers sin controles estrictos de código fuente.", gap: "Auditar repositorios y exigir estándares de seguridad a desarrolladores externos.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / Gerencia"},
+
+            {id: "A.8.28", cat: "Tecnológico", name: "Separación de entornos (Dev, Test, Prod)", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Garantizar aislamiento total entre entornos de desarrollo, staging y producción.", done: false}
+            ], ev: "Ambientes separados en AWS, ocasionalmente base de datos de test usa datos reales.", gap: "Asegurar aislamiento total y datos sintéticos en entornos de prueba.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+
+            {id: "A.8.29", cat: "Tecnológico", name: "Gestión de cambios", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Implementar control de cambios documentado y bitácora formal de releases a producción.", done: false}
+            ], ev: "Despliegues directos a producción sin registro formal de cambios.", gap: "Implementar control de cambios documentado y bitácora de releases.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / Tech Lead"},
+
+            {id: "A.8.30", cat: "Tecnológico", name: "Información de prueba", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Prohibir el uso de respaldos con datos reales de producción en entornos de desarrollo y staging.", done: false}
+            ], ev: "Uso de respaldos de producción en staging para depurar errores.", gap: "Prohibir uso de datos reales de producción en entornos de desarrollo y staging.", obs: "", risk: "Alto", pri: "Alta", resp: "Tech Lead / QA"},
+
+            {id: "A.8.31", cat: "Tecnológico", name: "Protección de sistemas durante auditorías", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Planificar y coordinar ventanas de pruebas de penetración y auditorías técnicas con el equipo.", done: false}
+            ], ev: "Pruebas de penetración se hacen sin avisar al equipo en ocasiones.", gap: "Planificar y coordinar ventanas de pruebas de seguridad y auditoría.", obs: "", risk: "Medio", pri: "Media", resp: "TI"},
+
+            {id: "A.8.32", cat: "Tecnológico", name: "Gestión de incidentes de continuidad", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Probar la recuperación completa de servidores cloud ante caídas totales.", done: false}
+            ], ev: "Procedimientos de respaldo existen, falta probar la recuperación completa.", gap: "Realizar simulacro de recuperación ante caída total de servidores cloud.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps"},
+
+            {id: "A.8.33", cat: "Tecnológico", name: "Pruebas de continuidad de servicios de TIC", mat: 1, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Programar simulacro anual de failover y disaster recovery.", done: false}
+            ], ev: "Sin pruebas formales en el último año.", gap: "Programar simulacro anual de failover y disaster recovery.", obs: "", risk: "Alto", pri: "Alta", resp: "DevOps / TI"},
+
+            {id: "A.8.34", cat: "Tecnológico", name: "Protección contra código malicioso", mat: 2, doc: false, imp: false, mant: false, tasks: [
+                {id: 1, text: "Auditar cobertura y reportes de detección de malware en servidores y estaciones mensualmente.", done: false}
+            ], ev: "Control antimalware en endpoints y servidores cloud principales.", gap: "Auditar cobertura y reportes de detection de malware mensualmente.", obs: "", risk: "Medio", pri: "Baja", resp: "TI"}
         ];
 
         document.addEventListener("DOMContentLoaded", async () => {
@@ -282,7 +622,7 @@
         async function loadFromCloud() {
             if (!userId) return;
             try {
-                const docRef = doc(db, 'artifacts', appId, 'users', userId, 'iso_matrix_data', 'controls_v2');
+                const docRef = doc(db, 'artifacts', appId, 'users', userId, 'iso_matrix_data', 'controls_v3');
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     const savedData = docSnap.data().controls;
@@ -308,7 +648,7 @@
             }
 
             try {
-                const docRef = doc(db, 'artifacts', appId, 'users', userId, 'iso_matrix_data', 'controls_v2');
+                const docRef = doc(db, 'artifacts', appId, 'users', userId, 'iso_matrix_data', 'controls_v3');
                 await setDoc(docRef, { controls: window.isoControls, updatedAt: new Date().toISOString() });
                 statusEl.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> ¡Guardado en la Nube con éxito!`;
                 setTimeout(() => {
@@ -343,6 +683,11 @@
                 if (item.cat === "Físico") catBadgeClass = "bg-amber-50 text-amber-700";
                 if (item.cat === "Tecnológico") catBadgeClass = "bg-emerald-50 text-emerald-700";
 
+                // Calcular tareas completadas
+                const totalTasks = item.tasks ? item.tasks.length : 0;
+                const completedTasks = item.tasks ? item.tasks.filter(t => t.done).length : 0;
+                const percent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
                 const tr = document.createElement("tr");
                 tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
                 tr.innerHTML = `
@@ -358,14 +703,29 @@
                             <option value="4" ${item.mat === 4 ? 'selected' : ''}>4 - Optimizado</option>
                         </select>
                     </td>
-                    <td class="py-3 px-4 align-top">
+                    <td class="py-3 px-4 align-top space-y-2">
+                        <div class="flex flex-wrap items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs font-medium">
+                            <label class="flex items-center gap-1.5 cursor-pointer hover:text-indigo-600">
+                                <input type="checkbox" ${item.doc ? 'checked' : ''} onchange="updateDim(${globalIndex}, 'doc', this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"> Doc.
+                            </label>
+                            <label class="flex items-center gap-1.5 cursor-pointer hover:text-indigo-600">
+                                <input type="checkbox" ${item.imp ? 'checked' : ''} onchange="updateDim(${globalIndex}, 'imp', this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"> Imp.
+                            </label>
+                            <label class="flex items-center gap-1.5 cursor-pointer hover:text-indigo-600">
+                                <input type="checkbox" ${item.mant ? 'checked' : ''} onchange="updateDim(${globalIndex}, 'mant', this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"> Mant.
+                            </label>
+                        </div>
+                        <button onclick="openTasksModal(${globalIndex})" class="w-full text-left bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1.5 rounded-md text-xs font-semibold transition flex items-center justify-between">
+                            <span><i class="fa-solid fa-list-check mr-1"></i> Tareas (${completedTasks}/${totalTasks})</span>
+                            <span class="bg-indigo-200 text-indigo-800 text-[10px] px-1.5 py-0.5 rounded">${percent}%</span>
+                        </button>
                         <textarea rows="2" onchange="updateField(${globalIndex}, 'ev', this.value)" placeholder="Describa la evidencia..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.ev || ''}</textarea>
                     </td>
                     <td class="py-3 px-4 align-top">
-                        <textarea rows="2" onchange="updateField(${globalIndex}, 'gap', this.value)" placeholder="Describa la brecha..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.gap || ''}</textarea>
+                        <textarea rows="3" onchange="updateField(${globalIndex}, 'gap', this.value)" placeholder="Describa la brecha..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.gap || ''}</textarea>
                     </td>
                     <td class="py-3 px-4 align-top">
-                        <textarea rows="2" onchange="updateField(${globalIndex}, 'obs', this.value)" placeholder="Notas u observaciones..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.obs || ''}</textarea>
+                        <textarea rows="3" onchange="updateField(${globalIndex}, 'obs', this.value)" placeholder="Notas u observaciones generales..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">${item.obs || ''}</textarea>
                     </td>
                     <td class="py-3 px-3 align-top"><span class="text-xs px-2 py-0.5 rounded ${riskBadgeClass}">${item.risk}</span></td>
                     <td class="py-3 px-3 text-xs font-medium text-slate-700 align-top">${item.pri}</td>
@@ -374,11 +734,16 @@
                 tbody.appendChild(tr);
             });
 
-            document.getElementById("row-count").innerText = `Mostrando ${data.length} de 3 controles`;
+            document.getElementById("row-count").innerText = `Mostrando ${data.length} de 93 controles`;
         }
 
         window.updateMat = function(index, val) {
             window.isoControls[index].mat = parseInt(val);
+            window.saveToCloud();
+        }
+
+        window.updateDim = function(index, field, val) {
+            window.isoControls[index][field] = val;
             window.saveToCloud();
         }
 
@@ -387,19 +752,72 @@
             window.saveToCloud();
         }
 
-        window.filterTable = function() {
+        window.openTasksModal = function(index) {
+            activeModalIndex = index;
+            const control = window.isoControls[index];
+            
+            document.getElementById("modal-control-id").innerText = control.id;
+            document.getElementById("modal-control-title").innerText = control.name;
+
+            const listEl = document.getElementById("modal-tasks-list");
+            listEl.innerHTML = "";
+
+            if (!control.tasks || control.tasks.length === 0) {
+                listEl.innerHTML = `<p class="text-xs text-slate-400">No hay tareas específicas definidas para este control.</p>`;
+                document.getElementById("modal-progress-text").innerText = "0 de 0 tareas completadas";
+                document.getElementById("tasks-modal").classList.remove("hidden");
+                return;
+            }
+
+            control.tasks.forEach((task, tIndex) => {
+                const div = document.createElement("label");
+                div.className = "flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition cursor-pointer";
+                div.innerHTML = `
+                    <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${index}, ${tIndex}, this.checked)" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                    <span class="text-xs text-slate-700 font-medium leading-relaxed">${task.text}</span>
+                `;
+                listEl.appendChild(div);
+            });
+
+            updateModalProgress();
+            document.getElementById("tasks-modal").classList.remove("hidden");
+        }
+
+        window.toggleTask = function(controlIndex, taskIndex, val) {
+            window.isoControls[controlIndex].tasks[taskIndex].done = val;
+            updateModalProgress();
+            window.saveToCloud();
+            renderTable(getFilteredData());
+        }
+
+        function updateModalProgress() {
+            if (activeModalIndex === null) return;
+            const control = window.isoControls[activeModalIndex];
+            const total = control.tasks.length;
+            const done = control.tasks.filter(t => t.done).length;
+            document.getElementById("modal-progress-text").innerText = `${done} de ${total} tareas completadas (${Math.round((done/total)*100)}%)`;
+        }
+
+        window.closeTasksModal = function() {
+            document.getElementById("tasks-modal").classList.add("hidden");
+            activeModalIndex = null;
+        }
+
+        function getFilteredData() {
             const search = document.getElementById("search-input").value.toLowerCase();
             const cat = document.getElementById("category-filter").value;
             const risk = document.getElementById("risk-filter").value;
 
-            const filtered = window.isoControls.filter(item => {
+            return window.isoControls.filter(item => {
                 const matchSearch = item.id.toLowerCase().includes(search) || item.name.toLowerCase().includes(search) || (item.ev && item.ev.toLowerCase().includes(search)) || (item.gap && item.gap.toLowerCase().includes(search)) || (item.obs && item.obs.toLowerCase().includes(search));
                 const matchCat = cat === "" || item.cat === cat;
                 const matchRisk = risk === "" || item.risk.includes(risk);
                 return matchSearch && matchCat && matchRisk;
             });
+        }
 
-            renderTable(filtered);
+        window.filterTable = function() {
+            renderTable(getFilteredData());
         }
 
         window.resetFilters = function() {
@@ -411,7 +829,7 @@
 
         window.exportToCSV = function() {
             let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-            csvContent += "ID Control;Categoria;Nombre del Control;Madurez;Estado / Evidencia Actual;Brecha (GAP);Observaciones Generales;Nivel de Riesgo;Prioridad;Responsable Sugerido\r\n";
+            csvContent += "ID Control;Categoria;Nombre del Control;Madurez;Documentado;Implementado;Mantenido;Tareas Completadas;Estado / Evidencia Actual;Brecha (GAP);Observaciones Generales;Nivel de Riesgo;Prioridad;Responsable Sugerido\r\n";
 
             window.isoControls.forEach(row => {
                 let safeName = `"${(row.name || '').replace(/"/g, '""')}"`;
@@ -420,7 +838,11 @@
                 let safeObs = `"${(row.obs || '').replace(/"/g, '""')}"`;
                 let safeResp = `"${(row.resp || '').replace(/"/g, '""')}"`;
 
-                let line = [row.id, row.cat, safeName, row.mat, safeEv, safeGap, safeObs, row.risk, row.pri, safeResp].join(";");
+                const total = row.tasks ? row.tasks.length : 0;
+                const done = row.tasks ? row.tasks.filter(t => t.done).length : 0;
+                const taskSummary = `${done}/${total}`;
+
+                let line = [row.id, row.cat, safeName, row.mat, row.doc ? 'Sí' : 'No', row.imp ? 'Sí' : 'No', row.mant ? 'Sí' : 'No', taskSummary, safeEv, safeGap, safeObs, row.risk, row.pri, safeResp].join(";");
                 csvContent += line + "\r\n";
             });
 
