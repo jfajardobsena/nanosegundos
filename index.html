@@ -53,28 +53,53 @@
     </header>
 
     <section class="w-full px-4 sm:px-6 lg:px-8 mt-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <p class="text-xs text-slate-500 uppercase font-semibold">Total Controles</p>
-                <p class="text-2xl font-bold text-slate-900 mt-1" id="stat-total">93</p>
+        <div class="bg-white p-4 sm:px-6 rounded-xl shadow-sm border border-slate-200 mb-4 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(280px,1.4fr)] gap-5 items-center">
+            <div class="flex flex-wrap items-end justify-between md:justify-start gap-x-6 gap-y-1">
+                <p class="text-xs text-slate-500 uppercase font-semibold">Madurez global</p>
+                <p class="text-3xl font-bold text-slate-900"><span id="maturity-global-score">--</span><span class="text-sm font-medium text-slate-500"> / 4</span></p>
+                <p class="text-sm font-semibold text-indigo-700" id="maturity-global-level">Calculando...</p>
             </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <p class="text-xs text-slate-500 uppercase font-semibold">Organizacionales (5)</p>
-                <p class="text-2xl font-bold text-indigo-600 mt-1">37</p>
-            </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <p class="text-xs text-slate-500 uppercase font-semibold">Personales (6)</p>
-                <p class="text-2xl font-bold text-blue-600 mt-1">8</p>
-            </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <p class="text-xs text-slate-500 uppercase font-semibold">Físicos (7)</p>
-                <p class="text-2xl font-bold text-amber-600 mt-1">14</p>
-            </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <p class="text-xs text-slate-500 uppercase font-semibold">Tecnológicos (8)</p>
-                <p class="text-2xl font-bold text-emerald-600 mt-1">34</p>
+            <div>
+                <div class="flex justify-between items-center text-xs text-slate-500 mb-1.5">
+                    <span id="maturity-global-count">0 controles evaluados</span>
+                    <span class="font-semibold text-indigo-700" id="maturity-global-percent">0%</span>
+                </div>
+                <div class="h-2 bg-slate-100 rounded-full overflow-hidden"><div id="maturity-global-bar" class="h-full bg-indigo-500 rounded-full transition-all" style="width: 0%"></div></div>
             </div>
         </div>
+        <div class="overflow-x-auto">
+            <div class="grid grid-cols-4 min-w-[960px] gap-4">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs text-slate-500 uppercase font-semibold">Organizacionales · 5</p>
+                <p class="text-2xl font-bold text-indigo-600 mt-1"><span id="maturity-organizational-score">--</span><span class="text-sm font-medium text-slate-500"> / 4</span></p>
+                <p class="text-sm font-semibold text-indigo-700" id="maturity-organizational-level">Calculando...</p>
+                <div class="h-1.5 bg-slate-100 rounded-full mt-3 overflow-hidden"><div id="maturity-organizational-bar" class="h-full bg-indigo-500 rounded-full transition-all" style="width: 0%"></div></div>
+                <p class="text-xs text-slate-500 mt-2" id="maturity-organizational-count">0 controles evaluados</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs text-slate-500 uppercase font-semibold">Personal · 6</p>
+                <p class="text-2xl font-bold text-blue-600 mt-1"><span id="maturity-personnel-score">--</span><span class="text-sm font-medium text-slate-500"> / 4</span></p>
+                <p class="text-sm font-semibold text-blue-700" id="maturity-personnel-level">Calculando...</p>
+                <div class="h-1.5 bg-slate-100 rounded-full mt-3 overflow-hidden"><div id="maturity-personnel-bar" class="h-full bg-blue-500 rounded-full transition-all" style="width: 0%"></div></div>
+                <p class="text-xs text-slate-500 mt-2" id="maturity-personnel-count">0 controles evaluados</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs text-slate-500 uppercase font-semibold">Físicos · 7</p>
+                <p class="text-2xl font-bold text-amber-600 mt-1"><span id="maturity-physical-score">--</span><span class="text-sm font-medium text-slate-500"> / 4</span></p>
+                <p class="text-sm font-semibold text-amber-700" id="maturity-physical-level">Calculando...</p>
+                <div class="h-1.5 bg-slate-100 rounded-full mt-3 overflow-hidden"><div id="maturity-physical-bar" class="h-full bg-amber-500 rounded-full transition-all" style="width: 0%"></div></div>
+                <p class="text-xs text-slate-500 mt-2" id="maturity-physical-count">0 controles evaluados</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs text-slate-500 uppercase font-semibold">Tecnológicos · 8</p>
+                <p class="text-2xl font-bold text-emerald-600 mt-1"><span id="maturity-technological-score">--</span><span class="text-sm font-medium text-slate-500"> / 4</span></p>
+                <p class="text-sm font-semibold text-emerald-700" id="maturity-technological-level">Calculando...</p>
+                <div class="h-1.5 bg-slate-100 rounded-full mt-3 overflow-hidden"><div id="maturity-technological-bar" class="h-full bg-emerald-500 rounded-full transition-all" style="width: 0%"></div></div>
+                <p class="text-xs text-slate-500 mt-2" id="maturity-technological-count">0 controles evaluados</p>
+            </div>
+            </div>
+        </div>
+        <p class="text-xs text-slate-500 mt-3">La media de cada grupo se redondea al entero más cercano; la barra representa ese nivel sobre el máximo de 4.</p>
     </section>
 
     <main class="w-full px-4 sm:px-6 lg:px-8 my-6 flex-grow">
@@ -715,6 +740,54 @@
             document.getElementById("editor-logout-button").classList.toggle("hidden", !isEditor);
         }
 
+        function summarizeMaturity(controls) {
+            const scores = controls
+                .map(control => Number(control.mat))
+                .filter(score => Number.isFinite(score) && score >= 0 && score <= 4);
+            if (scores.length === 0) return { average: null, level: "Sin datos", percent: 0, count: 0 };
+
+            const average = Math.round(scores.reduce((total, score) => total + score, 0) / scores.length);
+            const levelNames = ["Inexistente", "Inicial", "Definido", "Gestionado", "Optimizado"];
+            return {
+                average,
+                level: `Nivel ${average} · ${levelNames[average]}`,
+                percent: (average / 4) * 100,
+                count: scores.length
+            };
+        }
+
+        function updateMaturitySummary() {
+            const categories = [
+                { key: "organizational", name: "Organizacional" },
+                { key: "personnel", name: "Personal" },
+                { key: "physical", name: "Físico" },
+                { key: "technological", name: "Tecnológico" }
+            ];
+            const groups = [
+                { key: "global", controls: window.isoControls },
+                ...categories.map(category => ({
+                    key: category.key,
+                    controls: window.isoControls.filter(control => control.cat === category.name)
+                }))
+            ];
+
+            groups.forEach(group => {
+                const summary = summarizeMaturity(group.controls);
+                const score = document.getElementById(`maturity-${group.key}-score`);
+                score.textContent = summary.average === null
+                    ? "--"
+                    : summary.average.toLocaleString("es-ES");
+                document.getElementById(`maturity-${group.key}-level`).textContent = summary.level;
+                document.getElementById(`maturity-${group.key}-bar`).style.width = `${summary.percent}%`;
+                if (group.key === "global") {
+                    document.getElementById("maturity-global-percent").textContent = `${Math.round(summary.percent)}%`;
+                }
+                document.getElementById(`maturity-${group.key}-count`).textContent = group.key === "global"
+                    ? `${summary.count} de ${window.isoControls.length} controles evaluados`
+                    : `${summary.count} controles evaluados`;
+            });
+        }
+
         window.loginAsEditor = async function() {
             const provider = new GoogleAuthProvider();
             provider.setCustomParameters({ prompt: 'select_account' });
@@ -763,6 +836,7 @@
             const tbody = document.getElementById("table-body");
             const readOnlyAttribute = isEditor ? '' : 'disabled';
             tbody.innerHTML = "";
+            updateMaturitySummary();
             
             if (data.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400">No se encontraron controles con los filtros seleccionados.</td></tr>`;
@@ -840,6 +914,7 @@
         window.updateMat = function(index, val) {
             if (!isEditor) return;
             window.isoControls[index].mat = parseInt(val);
+            updateMaturitySummary();
             window.saveToCloud();
         }
 
